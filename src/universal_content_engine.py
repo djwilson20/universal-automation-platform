@@ -2,10 +2,19 @@
 Universal Content Engine
 Transforms classified data into presentation-ready business content
 Format-agnostic output for PowerPoint, web presentations, or reports
+
+This module generates executive-level business narratives and presentation
+structures from data classification results.
 """
 
 import json
-import pandas as pd
+# Import dependencies with fallback handling
+try:
+    import pandas as pd
+    HAS_PANDAS = True
+except ImportError:
+    HAS_PANDAS = False
+    print("Warning: pandas not available in content engine")
 from datetime import datetime
 from typing import Dict, List, Any, Optional
 from dataclasses import dataclass, asdict
@@ -13,6 +22,16 @@ from enhanced_classifier import AIDataClassifier, DataSensitivity, DataType
 
 @dataclass
 class SlideContent:
+    """Data structure for slide content in presentations.
+
+    Attributes:
+        title: Main title of the slide
+        subtitle: Subtitle or section identifier
+        content_type: Type of content ('text', 'chart', 'table', 'bullet_points')
+        content: The actual content data
+        speaker_notes: Notes for presenter
+        priority: Slide ordering priority (1-5)
+    """
     title: str
     subtitle: str
     content_type: str  # 'text', 'chart', 'table', 'bullet_points'
@@ -22,6 +41,14 @@ class SlideContent:
 
 @dataclass
 class ChartData:
+    """Data structure for chart visualization information.
+
+    Attributes:
+        chart_type: Type of chart ('pie', 'bar', 'line', 'donut')
+        title: Chart title
+        data: Chart data dictionary
+        description: Chart description for accessibility
+    """
     chart_type: str  # 'pie', 'bar', 'line', 'donut'
     title: str
     data: Dict[str, Any]
@@ -29,6 +56,16 @@ class ChartData:
 
 @dataclass
 class PresentationStructure:
+    """Complete presentation structure with all slides and metadata.
+
+    Attributes:
+        title: Presentation title
+        subtitle: Presentation subtitle
+        executive_summary: Executive summary text
+        slides: List of SlideContent objects
+        appendix_data: Additional data for appendix
+        metadata: Presentation metadata
+    """
     title: str
     subtitle: str
     executive_summary: str
@@ -37,9 +74,14 @@ class PresentationStructure:
     metadata: Dict[str, Any]
 
 class BusinessNarrativeEngine:
-    """Generates business-focused narrative content from classification data"""
+    """Generates business-focused narrative content from classification data.
+
+    Transforms technical classification results into executive-level
+    business narratives with actionable insights and recommendations.
+    """
     
     def __init__(self):
+        """Initialize the narrative engine with risk messaging templates."""
         self.risk_messaging = {
             DataSensitivity.TOP_SECRET: {
                 'urgency': 'CRITICAL',
@@ -69,7 +111,14 @@ class BusinessNarrativeEngine:
         }
 
     def generate_executive_summary(self, classification_results: Dict) -> str:
-        """Generate executive-level summary focusing on business impact"""
+        """Generate executive-level summary focusing on business impact.
+
+        Args:
+            classification_results: Dictionary containing classification metadata
+
+        Returns:
+            Formatted executive summary string
+        """
         
         total_fields = classification_results['executive_summary']['total_fields']
         high_risk_count = classification_results['executive_summary']['high_risk_count']
@@ -84,7 +133,8 @@ class BusinessNarrativeEngine:
         risk_level = "HIGH" if high_risk_count > total_fields * 0.3 else "MEDIUM" if high_risk_count > 0 else "LOW"
         
         summary = f"""
-Our analysis of {total_fields} data fields reveals significant opportunities for process automation while maintaining appropriate security controls.
+Our analysis of {total_fields} data fields reveals significant opportunities for
+process automation while maintaining appropriate security controls.
 
 KEY FINDINGS:
 • {automation_ready} of {total_fields} fields ({manual_reduction}) are ready for immediate automation
@@ -176,7 +226,11 @@ RECOMMENDED ACTIONS:
         return narrative
 
 class ChartGenerator:
-    """Generates chart data for visualization in presentations"""
+    """Generates chart data for visualization in presentations.
+
+    Creates chart specifications that can be rendered by various
+    presentation tools (PowerPoint, web frameworks, etc.).
+    """
     
     @staticmethod
     def create_risk_distribution_chart(field_classifications: Dict) -> ChartData:
@@ -270,16 +324,30 @@ class ChartGenerator:
         )
 
 class UniversalContentEngine:
-    """Main engine that orchestrates content generation"""
+    """Main engine that orchestrates content generation.
+
+    Coordinates narrative generation and chart creation to produce
+    complete presentation structures from classification data.
+    """
     
     def __init__(self):
+        """Initialize the content engine with component generators."""
         self.narrative_engine = BusinessNarrativeEngine()
         self.chart_generator = ChartGenerator()
     
     def generate_presentation_content(self, classification_file: str, 
                                     presentation_title: str = "Data Classification Analysis",
                                     company_context: str = "Internal Analysis") -> PresentationStructure:
-        """Generate complete presentation content from classification results"""
+        """Generate complete presentation content from classification results.
+
+        Args:
+            classification_file: Path to JSON file with classification results
+            presentation_title: Title for the presentation
+            company_context: Company or context identifier
+
+        Returns:
+            PresentationStructure object with complete slide content
+        """
         
         # Load classification results
         with open(classification_file, 'r') as f:
@@ -380,7 +448,9 @@ class UniversalContentEngine:
                 'Risk Level': field_data['sensitivity_level'],
                 'Confidence': f"{field_data['confidence_score']:.0%}",
                 'Automation Ready': 'Yes' if field_data['automation_ready'] else 'No',
-                'Recommended Action': field_data['recommended_action'][:50] + '...' if len(field_data['recommended_action']) > 50 else field_data['recommended_action']
+                'Recommended Action': (field_data['recommended_action'][:50] + '...'
+                                       if len(field_data['recommended_action']) > 50
+                                       else field_data['recommended_action'])
             })
         
         slides.append(SlideContent(
@@ -415,7 +485,15 @@ class UniversalContentEngine:
     
     def export_presentation_content(self, presentation: PresentationStructure, 
                                    output_file: str = "presentation_content.json") -> str:
-        """Export presentation content to JSON for use with any presentation tool"""
+        """Export presentation content to JSON for use with any presentation tool.
+
+        Args:
+            presentation: PresentationStructure object to export
+            output_file: Output file path
+
+        Returns:
+            Path to the exported file
+        """
         
         # Convert presentation to dictionary
         presentation_dict = asdict(presentation)
@@ -487,7 +565,8 @@ def main():
     # Summary
     print(f"\nContent Generation Complete!")
     print(f"• Generated {len(presentation.slides)} slides")
-    print(f"• Analyzed {len(presentation.appendix_data['full_classification_data']['field_classifications'])} data            fields")
+    field_count = len(presentation.appendix_data['full_classification_data']['field_classifications'])
+    print(f"• Analyzed {field_count} data fields")
     print(f"• Ready for import into PowerPoint, Google Slides, or web presentation")
     print(f"• Structured content available in: {output_file}")
     

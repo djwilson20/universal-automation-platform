@@ -1,10 +1,25 @@
 """
 Enhanced AI Data Classification Engine - Desktop Test Version
 Clean, copy-safe implementation for your universal automation platform
+
+This module provides comprehensive data classification capabilities with security
+risk assessment and automation readiness evaluation.
 """
 
-import pandas as pd
-import numpy as np
+# Import dependencies with fallback handling
+try:
+    import pandas as pd
+    HAS_PANDAS = True
+except ImportError:
+    HAS_PANDAS = False
+    print("Warning: pandas not available, using fallback implementations")
+
+try:
+    import numpy as np
+    HAS_NUMPY = True
+except ImportError:
+    HAS_NUMPY = False
+    print("Warning: numpy not available, using fallback implementations")
 import re
 import json
 from datetime import datetime
@@ -13,6 +28,11 @@ from enum import Enum
 from typing import Dict, List, Tuple, Any, Optional
 
 class DataSensitivity(Enum):
+    """Enumeration of data sensitivity levels for security classification.
+
+    Values are ordered from least (1) to most sensitive (5) to enable
+    proper risk assessment and access control decisions.
+    """
     PUBLIC = 1
     INTERNAL = 2
     CONFIDENTIAL = 3
@@ -20,6 +40,12 @@ class DataSensitivity(Enum):
     TOP_SECRET = 5
 
 class DataType(Enum):
+    """Enumeration of recognized data types for classification.
+
+    Covers personally identifiable information (PII), financial data,
+    business metrics, and other common data categories found in
+    enterprise datasets.
+    """
     PII_NAME = "pii_name"
     PII_SSN = "pii_ssn"
     PII_EMAIL = "pii_email"
@@ -41,6 +67,21 @@ class DataType(Enum):
 
 @dataclass
 class ClassificationResult:
+    """Container for the results of data field classification.
+
+    Attributes:
+        field_name: Name of the classified data field
+        data_type: Detected data type from DataType enum
+        sensitivity: Security sensitivity level from DataSensitivity enum
+        confidence: Classification confidence score (0.0 to 1.0)
+        sample_values: Representative sample values from the field
+        patterns_detected: List of patterns found in the data
+        business_context: Business context description
+        recommended_action: Recommended security/handling action
+        risk_factors: List of identified risk factors
+        masking_strategy: Recommended data masking approach
+        automation_ready: Whether field is safe for automated processing
+    """
     field_name: str
     data_type: DataType
     sensitivity: DataSensitivity
@@ -54,7 +95,15 @@ class ClassificationResult:
     automation_ready: bool
 
 class AIDataClassifier:
+    """AI-powered data classification engine with security risk assessment.
+
+    Provides semantic analysis of data fields to identify data types,
+    assess security risks, and generate actionable recommendations for
+    data protection and automation readiness.
+    """
+
     def __init__(self):
+        """Initialize the AI Data Classifier with pattern recognition rules."""
         self.field_patterns = {
             DataType.PII_NAME: [r'\bnames?\b', r'\bfname\b', r'\blname\b'],
             DataType.PII_EMAIL: [r'\bemail\b', r'\bmail\b'],
@@ -98,6 +147,15 @@ class AIDataClassifier:
         }
 
     def classify_field(self, field_name: str, sample_values: List[Any]) -> ClassificationResult:
+        """Classify a single data field based on name and sample values.
+
+        Args:
+            field_name: Name of the data field to classify
+            sample_values: List of sample values from the field
+
+        Returns:
+            ClassificationResult object containing classification details
+        """
         # Analyze field name
         field_lower = field_name.lower()
         detected_type = DataType.UNKNOWN
@@ -183,6 +241,14 @@ class AIDataClassifier:
         )
 
     def is_numeric_column(self, values: List[Any]) -> bool:
+        """Determine if a column contains primarily numeric data.
+
+        Args:
+            values: List of values to analyze
+
+        Returns:
+            True if more than 80% of values are numeric
+        """
         if not values:
             return False
         numeric_count = 0
@@ -193,28 +259,47 @@ class AIDataClassifier:
                 try:
                     float(str(val).replace(',', '').replace('$', ''))
                     numeric_count += 1
-                except:
-                    pass
+                except (ValueError, TypeError):
+                    # Skip non-numeric values in numeric analysis
+                    continue
         return numeric_count / max(total_count, 1) > 0.8
 
     def looks_like_id(self, values: List[Any]) -> bool:
+        """Determine if values appear to be unique identifiers.
+
+        Args:
+            values: List of values to analyze
+
+        Returns:
+            True if values appear to be unique integer identifiers
+        """
         try:
             numeric_vals = []
             for val in values:
                 if val is not None:
                     try:
                         numeric_vals.append(float(str(val).replace(',', '')))
-                    except:
+                    except (ValueError, TypeError):
+                        # Skip values that cannot be converted to numeric
                         continue
             if len(numeric_vals) < 2:
                 return False
             are_integers = all(val == int(val) for val in numeric_vals)
             unique_ratio = len(set(numeric_vals)) / len(numeric_vals)
             return are_integers and unique_ratio > 0.9
-        except:
+        except (ValueError, TypeError, AttributeError):
+            # Return False if ID analysis fails
             return False
 
     def looks_like_amount(self, values: List[Any]) -> bool:
+        """Determine if values appear to be monetary amounts.
+
+        Args:
+            values: List of values to analyze
+
+        Returns:
+            True if values appear to be financial amounts
+        """
         try:
             numeric_vals = []
             for val in values:
@@ -222,17 +307,27 @@ class AIDataClassifier:
                     try:
                         clean_val = str(val).replace('$', '').replace(',', '').strip()
                         numeric_vals.append(float(clean_val))
-                    except:
+                    except (ValueError, TypeError):
+                        # Skip values that cannot be converted to numeric
                         continue
             if len(numeric_vals) < 2:
                 return False
             has_decimals = any(val != int(val) for val in numeric_vals)
             reasonable_range = all(-1000000 <= val <= 100000000 for val in numeric_vals)
             return reasonable_range
-        except:
+        except (ValueError, TypeError, AttributeError):
+            # Return False if amount analysis fails
             return False
 
     def detect_patterns(self, values: List[Any]) -> List[str]:
+        """Detect patterns in data values for classification insights.
+
+        Args:
+            values: List of values to analyze
+
+        Returns:
+            List of detected pattern descriptions
+        """
         if not values:
             return ["No values to analyze"]
         
@@ -257,14 +352,33 @@ class AIDataClassifier:
         
         return patterns
 
-    def classify_dataset(self, df: pd.DataFrame, dataset_name: str = "unknown") -> Dict[str, ClassificationResult]:
+    def classify_dataset(self, df, dataset_name: str = "unknown") -> Dict[str, ClassificationResult]:
+        """Classify all fields in a dataset.
+
+        Args:
+            df: DataFrame or dict-like object containing the data
+            dataset_name: Name identifier for the dataset
+
+        Returns:
+            Dictionary mapping field names to ClassificationResult objects
+        """
         print(f"Starting classification of dataset: {dataset_name}")
-        print(f"Dataset shape: {df.shape[0]} rows, {df.shape[1]} columns")
+        if hasattr(df, 'shape'):
+            print(f"Dataset shape: {df.shape[0]} rows, {df.shape[1]} columns")
+        else:
+            print(f"Dataset columns: {len(getattr(df, 'columns', df.keys() if hasattr(df, 'keys') else []))}")
         
         results = {}
         
-        for column in df.columns:
-            sample_values = df[column].dropna().head(20).tolist()
+        columns = getattr(df, 'columns', df.keys() if hasattr(df, 'keys') else [])
+        for column in columns:
+            if hasattr(df, 'iloc'):
+                # pandas DataFrame
+                sample_values = df[column].dropna().head(20).tolist()
+            else:
+                # dict-like object
+                column_data = df.get(column, [])
+                sample_values = [v for v in column_data[:20] if v is not None]
             result = self.classify_field(column, sample_values)
             results[column] = result
             print(f"Classified {column}: {result.data_type.value} (confidence: {result.confidence:.2f})")
@@ -272,11 +386,23 @@ class AIDataClassifier:
         return results
 
     def generate_executive_summary(self, results: Dict[str, ClassificationResult]) -> str:
+        """Generate executive-level summary of classification results.
+
+        Args:
+            results: Dictionary of classification results
+
+        Returns:
+            Formatted executive summary string
+        """
         total_fields = len(results)
         high_risk_fields = sum(1 for r in results.values() 
                               if r.sensitivity.value >= DataSensitivity.CONFIDENTIAL.value)
         automation_ready = sum(1 for r in results.values() if r.automation_ready)
-        avg_confidence = np.mean([r.confidence for r in results.values()])
+        confidences = [r.confidence for r in results.values()]
+        if HAS_NUMPY:
+            avg_confidence = np.mean(confidences)
+        else:
+            avg_confidence = sum(confidences) / len(confidences) if confidences else 0.0
         
         risk_dist = {}
         for result in results.values():
@@ -318,8 +444,17 @@ BUSINESS IMPACT:
         
         return summary
 
-    def export_for_powerpoint(self, results: Dict[str, ClassificationResult], 
+    def export_for_powerpoint(self, results: Dict[str, ClassificationResult],
                              filename: str = "classification_for_ppt.json") -> str:
+        """Export classification results to JSON for PowerPoint integration.
+
+        Args:
+            results: Dictionary of classification results
+            filename: Output filename for JSON export
+
+        Returns:
+            Path to the exported JSON file
+        """
         export_data = {
             'metadata': {
                 'generated_at': datetime.now().isoformat(),
@@ -331,7 +466,9 @@ BUSINESS IMPACT:
                 'high_risk_count': sum(1 for r in results.values() 
                                      if r.sensitivity.value >= DataSensitivity.CONFIDENTIAL.value),
                 'automation_ready_count': sum(1 for r in results.values() if r.automation_ready),
-                'average_confidence': float(np.mean([r.confidence for r in results.values()]))
+                'average_confidence': float(
+                    sum([r.confidence for r in results.values()]) / len(results) if results else 0.0
+                )
             },
             'field_classifications': {}
         }
@@ -353,10 +490,18 @@ BUSINESS IMPACT:
         return filename
 
 def create_test_data():
-    return pd.DataFrame({
+    """Create sample test data for demonstration purposes.
+
+    Returns:
+        DataFrame or dict containing sample customer financial data
+    """
+    data = {
         'customer_id': [10001, 10002, 10003, 10004, 10005],
         'customer_name': ['John Smith', 'Sarah Johnson', 'Michael Brown', 'Lisa Davis', 'Robert Wilson'],
-        'email_address': ['john.smith@email.com', 'sarah.j@company.com', 'mbrown@test.org', 'lisa.davis@work.net', 'rwilson@example.com'],
+        'email_address': [
+            'john.smith@email.com', 'sarah.j@company.com', 'mbrown@test.org',
+            'lisa.davis@work.net', 'rwilson@example.com'
+        ],
         'phone_number': ['555-123-4567', '555-987-6543', '555-555-1234', '555-777-8888', '555-999-0000'],
         'ssn': ['123-45-6789', '987-65-4321', '555-44-3333', '111-22-4444', '999-88-7777'],
         'date_of_birth': ['1985-03-15', '1992-07-22', '1978-11-08', '1990-05-13', '1988-09-30'],
@@ -364,7 +509,13 @@ def create_test_data():
         'credit_score': [720, 685, 750, 640, 695],
         'account_type': ['Checking', 'Savings', 'Checking', 'Premium', 'Checking'],
         'last_transaction_date': ['2024-01-15', '2024-01-14', '2024-01-13', '2024-01-12', '2024-01-11']
-    })
+    }
+
+    if HAS_PANDAS:
+        return pd.DataFrame(data)
+    else:
+        # Fallback: return dict with list values
+        return data
 
 if __name__ == "__main__":
     print("AI Data Classification Engine - Enhanced Desktop Version")
@@ -376,7 +527,10 @@ if __name__ == "__main__":
     # Load test data
     print("Loading test dataset...")
     test_data = create_test_data()
-    print(f"Dataset loaded: {test_data.shape[0]} rows, {test_data.shape[1]} columns")
+    if hasattr(test_data, 'shape'):
+        print(f"Dataset loaded: {test_data.shape[0]} rows, {test_data.shape[1]} columns")
+    else:
+        print(f"Dataset loaded: {len(next(iter(test_data.values())))} rows, {len(test_data)} columns")
     print()
     
     # Run classification

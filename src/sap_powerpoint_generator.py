@@ -3,20 +3,54 @@ SAP-Compliant PowerPoint Generator
 Creates presentations following SAP brand guidelines and visual identity standards
 """
 
-from pptx import Presentation
-from pptx.util import Inches, Pt
-from pptx.enum.text import MSO_AUTO_SIZE, PP_ALIGN
-from pptx.dml.color import RGBColor
-from pptx.enum.shapes import MSO_SHAPE
-from pptx.chart.data import CategoryChartData
-from pptx.enum.chart import XL_CHART_TYPE, XL_LEGEND_POSITION
-from pptx.enum.dml import MSO_THEME_COLOR
+# Import dependencies with fallback handling
+try:
+    from pptx import Presentation
+    from pptx.util import Inches, Pt
+    from pptx.enum.text import MSO_AUTO_SIZE, PP_ALIGN
+    from pptx.dml.color import RGBColor
+    from pptx.enum.shapes import MSO_SHAPE
+    from pptx.chart.data import CategoryChartData
+    from pptx.enum.chart import XL_CHART_TYPE, XL_LEGEND_POSITION
+    from pptx.enum.dml import MSO_THEME_COLOR
+    HAS_PPTX = True
+except ImportError:
+    HAS_PPTX = False
+    print("Warning: python-pptx not available, PowerPoint generation disabled")
+    # Create dummy classes to prevent import errors
+    class DummyPresentation:
+        """Dummy class for missing Presentation dependency."""
+        pass
+
+    class DummyColor:
+        """Dummy class for missing RGBColor dependency."""
+        def __init__(self, *args):
+            pass
+
+    class DummyInches:
+        """Dummy class for missing Inches dependency."""
+        def __init__(self, *args):
+            pass
+
+    class DummyPt:
+        """Dummy class for missing Pt dependency."""
+        def __init__(self, *args):
+            pass
+
+    Presentation = DummyPresentation
+    RGBColor = DummyColor
+    Inches = DummyInches
+    Pt = DummyPt
 import json
 from datetime import datetime
 import os
 
 class SAPPowerPointGenerator:
-    """Generates SAP brand-compliant PowerPoint presentations"""
+    """Generates SAP brand-compliant PowerPoint presentations.
+
+    Creates professional presentations following SAP brand guidelines
+    with proper typography, colors, and layout standards.
+    """
     
     def __init__(self):
         # SAP Official Color Palette
@@ -51,7 +85,22 @@ class SAPPowerPointGenerator:
         }
 
     def create_sap_presentation(self, content_json_file, presenter_name="", date_str="", output_filename=None):
-        """Create SAP-compliant presentation from structured content"""
+        """Create SAP-compliant presentation from structured content.
+
+        Args:
+            content_json_file: Path to JSON file with presentation content
+            presenter_name: Name of the presenter
+            date_str: Date string for presentation
+            output_filename: Output filename for presentation
+
+        Returns:
+            Path to created presentation file or None if failed
+        """
+
+        if not HAS_PPTX:
+            print("Error: python-pptx not available. Cannot create PowerPoint presentation.")
+            print("Please install with: pip install python-pptx")
+            return None
         
         # Load content data
         try:
@@ -308,7 +357,8 @@ class SAPPowerPointGenerator:
                 Inches(2), Inches(3), Inches(9.33), Inches(2)
             )
             fallback_frame = fallback_box.text_frame
-            fallback_frame.text = "• Chart visualization pending data availability\n• Contact presenter for detailed metrics"
+            fallback_frame.text = ("• Chart visualization pending data availability\n"
+                                    "• Contact presenter for detailed metrics")
             for paragraph in fallback_frame.paragraphs:
                 self._apply_sap_body_format(paragraph)
 
@@ -341,7 +391,8 @@ class SAPPowerPointGenerator:
                 Inches(2), Inches(3), Inches(9.33), Inches(2)
             )
             fallback_frame = fallback_box.text_frame
-            fallback_frame.text = "• Detailed data analysis available upon request\n• Summary metrics provided in appendix"
+            fallback_frame.text = ("• Detailed data analysis available upon request\n"
+                                    "• Summary metrics provided in appendix")
             for paragraph in fallback_frame.paragraphs:
                 self._apply_sap_body_format(paragraph)
 
