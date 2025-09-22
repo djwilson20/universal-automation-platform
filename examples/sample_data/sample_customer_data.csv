@@ -1,0 +1,6 @@
+customer_id,customer_name,email_address,phone_number,ssn,account_balance,credit_score,account_type,registration_date,last_login_date
+CUST10001,John Smith,john.smith@testdemo.com,555-123-4567,123-45-6789,15000.50,720,Checking,2023-01-15,2024-11-01
+CUST10002,Sarah Johnson,sarah.j@demodomain.com,555-987-6543,987-65-4321,27500.25,685,Savings,2023-03-22,2024-10-28
+CUST10003,Michael Brown,mbrown@samplebiz.org,555-555-1234,555-44-3333,8900.00,750,Checking,2023-07-08,2024-11-02
+CUST10004,Lisa Davis,lisa.davis@testwork.net,555-777-8888,111-22-4444,45000.75,640,Premium,2023-05-13,2024-10-30
+CUST10005,Robert Wilson,rwilson@democorp.com,555-999-0000,999-88-7777,12300.00,695,Checking,2023-09-30,2024-11-01

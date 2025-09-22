@@ -1,0 +1,6 @@
+employee_id,employee_name,work_email,department,salary,hire_date,performance_rating,manager_id,security_clearance,ssn
+EMP20001,Alice Thompson,alice.thompson@company.com,Engineering,85000,2022-03-15,Exceeds,EMP20010,Confidential,123-11-1111
+EMP20002,David Rodriguez,david.rodriguez@company.com,Sales,72000,2021-07-22,Meets,EMP20011,None,456-22-2222
+EMP20003,Jennifer Chen,jennifer.chen@company.com,Finance,78000,2023-01-08,Outstanding,EMP20012,Secret,789-33-3333
+EMP20004,Mark Williams,mark.williams@company.com,Marketing,65000,2022-11-13,Meets,EMP20013,None,321-44-4444
+EMP20005,Emily Davis,emily.davis@company.com,Operations,70000,2021-09-30,Exceeds,EMP20014,Confidential,654-55-5555

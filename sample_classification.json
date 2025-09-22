@@ -1,0 +1,113 @@
+{
+  "metadata": {
+    "generated_at": "2025-09-19T14:34:08.570940",
+    "total_fields": 10,
+    "ready_for_automation": true
+  },
+  "executive_summary": {
+    "total_fields": 10,
+    "high_risk_count": 4,
+    "automation_ready_count": 1,
+    "average_confidence": 0.51
+  },
+  "field_classifications": {
+    "customer_id": {
+      "data_type": "customer_id",
+      "sensitivity_level": "INTERNAL",
+      "confidence_score": 0.9,
+      "automation_ready": true,
+      "recommended_action": "ACCESS CONTROL - Restrict to internal personnel",
+      "masking_strategy": "Apply appropriate masking based on business requirements",
+      "risk_factors": []
+    },
+    "customer_name": {
+      "data_type": "unknown",
+      "sensitivity_level": "PUBLIC",
+      "confidence_score": 0.1,
+      "automation_ready": false,
+      "recommended_action": "STANDARD HANDLING - No special security measures required",
+      "masking_strategy": "Apply appropriate masking based on business requirements",
+      "risk_factors": []
+    },
+    "email_address": {
+      "data_type": "pii_email",
+      "sensitivity_level": "CONFIDENTIAL",
+      "confidence_score": 0.8,
+      "automation_ready": false,
+      "recommended_action": "SELECTIVE MASKING - Mask sensitive portions",
+      "masking_strategy": "Username + masked domain (john****@****.com)",
+      "risk_factors": [
+        "Contains personally identifiable information"
+      ]
+    },
+    "phone_number": {
+      "data_type": "pii_phone",
+      "sensitivity_level": "CONFIDENTIAL",
+      "confidence_score": 0.8,
+      "automation_ready": false,
+      "recommended_action": "SELECTIVE MASKING - Mask sensitive portions",
+      "masking_strategy": "Apply appropriate masking based on business requirements",
+      "risk_factors": [
+        "Contains personally identifiable information"
+      ]
+    },
+    "ssn": {
+      "data_type": "pii_ssn",
+      "sensitivity_level": "TOP_SECRET",
+      "confidence_score": 0.9,
+      "automation_ready": false,
+      "recommended_action": "IMMEDIATE TOKENIZATION - Replace with irreversible tokens",
+      "masking_strategy": "Full tokenization (XXX-XX-1234)",
+      "risk_factors": [
+        "Contains personally identifiable information"
+      ]
+    },
+    "date_of_birth": {
+      "data_type": "unknown",
+      "sensitivity_level": "PUBLIC",
+      "confidence_score": 0.1,
+      "automation_ready": false,
+      "recommended_action": "STANDARD HANDLING - No special security measures required",
+      "masking_strategy": "Apply appropriate masking based on business requirements",
+      "risk_factors": []
+    },
+    "account_balance": {
+      "data_type": "financial_amount",
+      "sensitivity_level": "CONFIDENTIAL",
+      "confidence_score": 0.7,
+      "automation_ready": false,
+      "recommended_action": "SELECTIVE MASKING - Mask sensitive portions",
+      "masking_strategy": "Range buckets ($1K-$5K)",
+      "risk_factors": [
+        "Contains financial data requiring protection"
+      ]
+    },
+    "credit_score": {
+      "data_type": "customer_id",
+      "sensitivity_level": "INTERNAL",
+      "confidence_score": 0.6,
+      "automation_ready": false,
+      "recommended_action": "ACCESS CONTROL - Restrict to internal personnel",
+      "masking_strategy": "Apply appropriate masking based on business requirements",
+      "risk_factors": []
+    },
+    "account_type": {
+      "data_type": "unknown",
+      "sensitivity_level": "PUBLIC",
+      "confidence_score": 0.1,
+      "automation_ready": false,
+      "recommended_action": "STANDARD HANDLING - No special security measures required",
+      "masking_strategy": "Apply appropriate masking based on business requirements",
+      "risk_factors": []
+    },
+    "last_transaction_date": {
+      "data_type": "unknown",
+      "sensitivity_level": "PUBLIC",
+      "confidence_score": 0.1,
+      "automation_ready": false,
+      "recommended_action": "STANDARD HANDLING - No special security measures required",
+      "masking_strategy": "Apply appropriate masking based on business requirements",
+      "risk_factors": []
+    }
+  }
+}

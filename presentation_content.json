@@ -1,0 +1,371 @@
+{
+  "title": "Customer Data Security Analysis",
+  "subtitle": "Operations Team Analysis - Data Classification Analysis",
+  "executive_summary": "Our analysis of 10 data fields reveals significant opportunities for\nprocess automation while maintaining appropriate security controls.\n\nKEY FINDINGS:\n\u2022 1 of 10 fields (10%) are ready for immediate automation\n\u2022 4 fields require enhanced security measures before processing\n\u2022 Overall data classification confidence: 51%\n\u2022 Risk profile: HIGH - appropriate controls identified\n\nBUSINESS IMPACT:\n\u2022 Potential reduction in manual data processing: 10%\n\u2022 Enhanced compliance through automated security classification\n\u2022 Improved data governance and audit capabilities\n\u2022 Foundation established for scalable automation workflows\n\nRECOMMENDED ACTIONS:\n\u2022 Implement automated processing for low-risk, high-confidence fields\n\u2022 Deploy security measures for sensitive data categories\n\u2022 Establish governance framework for ongoing data classification\n\u2022 Begin pilot automation program with identified safe data sets",
+  "slides": [
+    {
+      "title": "Customer Data Security Analysis",
+      "subtitle": "Operations Team Analysis \u2022 September 2025",
+      "content_type": "text",
+      "content": "Automated analysis of 10 data fields",
+      "speaker_notes": "Opening slide - introduce the scope and purpose of the analysis",
+      "priority": 1
+    },
+    {
+      "title": "Executive Summary",
+      "subtitle": "Key Findings and Business Impact",
+      "content_type": "text",
+      "content": "Our analysis of 10 data fields reveals significant opportunities for\nprocess automation while maintaining appropriate security controls.\n\nKEY FINDINGS:\n\u2022 1 of 10 fields (10%) are ready for immediate automation\n\u2022 4 fields require enhanced security measures before processing\n\u2022 Overall data classification confidence: 51%\n\u2022 Risk profile: HIGH - appropriate controls identified\n\nBUSINESS IMPACT:\n\u2022 Potential reduction in manual data processing: 10%\n\u2022 Enhanced compliance through automated security classification\n\u2022 Improved data governance and audit capabilities\n\u2022 Foundation established for scalable automation workflows\n\nRECOMMENDED ACTIONS:\n\u2022 Implement automated processing for low-risk, high-confidence fields\n\u2022 Deploy security measures for sensitive data categories\n\u2022 Establish governance framework for ongoing data classification\n\u2022 Begin pilot automation program with identified safe data sets",
+      "speaker_notes": "Focus on business value and automation opportunities",
+      "priority": 2
+    },
+    {
+      "title": "Security Risk Assessment",
+      "subtitle": "Distribution of Data Sensitivity Levels",
+      "content_type": "chart",
+      "content": {
+        "chart_type": "pie",
+        "title": "Data Security Risk Distribution",
+        "data": {
+          "labels": [
+            "INTERNAL",
+            "PUBLIC",
+            "CONFIDENTIAL",
+            "TOP_SECRET"
+          ],
+          "values": [
+            2,
+            4,
+            3,
+            1
+          ],
+          "colors": {
+            "TOP_SECRET": "#FF4444",
+            "RESTRICTED": "#FF8800",
+            "CONFIDENTIAL": "#FFBB00",
+            "INTERNAL": "#88BB00",
+            "PUBLIC": "#00BB44"
+          }
+        },
+        "description": "Distribution of 10 fields across security risk levels"
+      },
+      "speaker_notes": "Highlight any high-risk areas that need immediate attention",
+      "priority": 3
+    },
+    {
+      "title": "Automation Opportunities",
+      "subtitle": "Fields Ready for Automated Processing",
+      "content_type": "chart",
+      "content": {
+        "chart_type": "donut",
+        "title": "Automation Readiness Assessment",
+        "data": {
+          "labels": [
+            "Ready for Automation",
+            "Requires Manual Review"
+          ],
+          "values": [
+            1,
+            9
+          ],
+          "colors": {
+            "Ready for Automation": "#00BB44",
+            "Requires Manual Review": "#FF8800"
+          }
+        },
+        "description": "1 of 10 fields ready for automation"
+      },
+      "speaker_notes": "Emphasize the potential for manual work reduction",
+      "priority": 4
+    },
+    {
+      "title": "Risk Assessment Details",
+      "subtitle": "Priority Areas and Required Actions",
+      "content_type": "text",
+      "content": "RISK ASSESSMENT SUMMARY:\n\n\u2022 1 fields classified as TOP SECRET require immediate attention\n  - These contain highly sensitive data (SSN, credit cards, etc.)\n  - Immediate tokenization and access restriction required\n\n\u2022 3 fields require standard security measures\n  - Selective masking and access controls sufficient\n\nPRIORITY FIELDS REQUIRING IMMEDIATE ACTION:\n\u2022 ssn: IMMEDIATE TOKENIZATION - Replace with irreversible tokens\n",
+      "speaker_notes": "Detail the specific security measures needed",
+      "priority": 5
+    },
+    {
+      "title": "Automation Implementation Plan",
+      "subtitle": "Recommended Fields and Expected Impact",
+      "content_type": "text",
+      "content": "AUTOMATION READINESS ASSESSMENT:\n\n\u2022 1 fields identified as safe for immediate automation\n\u2022 9 fields require manual review before automation\n\nRECOMMENDED FOR AUTOMATION:\n\u2022 customer_id (customer_id) - Confidence: 90%\n\nESTIMATED MANUAL WORK REDUCTION: 10%",
+      "speaker_notes": "Present the roadmap for automation deployment",
+      "priority": 6
+    },
+    {
+      "title": "Analysis Quality Assessment",
+      "subtitle": "Classification Confidence Levels",
+      "content_type": "chart",
+      "content": {
+        "chart_type": "bar",
+        "title": "Classification Confidence Distribution",
+        "data": {
+          "labels": [
+            "High (80-100%)",
+            "Medium (60-79%)",
+            "Low (40-59%)",
+            "Very Low (0-39%)"
+          ],
+          "values": [
+            4,
+            2,
+            0,
+            4
+          ],
+          "colors": {
+            "High (80-100%)": "#00BB44",
+            "Medium (60-79%)": "#88BB00",
+            "Low (40-59%)": "#FFBB00",
+            "Very Low (0-39%)": "#FF8800"
+          }
+        },
+        "description": "Distribution of confidence scores across all classified fields"
+      },
+      "speaker_notes": "Address any low-confidence areas that may need manual review",
+      "priority": 7
+    },
+    {
+      "title": "Detailed Field Analysis",
+      "subtitle": "Complete Classification Results",
+      "content_type": "table",
+      "content": {
+        "headers": [
+          "Field Name",
+          "Data Type",
+          "Risk Level",
+          "Confidence",
+          "Automation Ready",
+          "Recommended Action"
+        ],
+        "rows": [
+          {
+            "Field Name": "customer_id",
+            "Data Type": "customer_id",
+            "Risk Level": "INTERNAL",
+            "Confidence": "90%",
+            "Automation Ready": "Yes",
+            "Recommended Action": "ACCESS CONTROL - Restrict to internal personnel"
+          },
+          {
+            "Field Name": "customer_name",
+            "Data Type": "unknown",
+            "Risk Level": "PUBLIC",
+            "Confidence": "10%",
+            "Automation Ready": "No",
+            "Recommended Action": "STANDARD HANDLING - No special security measures r..."
+          },
+          {
+            "Field Name": "email_address",
+            "Data Type": "pii_email",
+            "Risk Level": "CONFIDENTIAL",
+            "Confidence": "80%",
+            "Automation Ready": "No",
+            "Recommended Action": "SELECTIVE MASKING - Mask sensitive portions"
+          },
+          {
+            "Field Name": "phone_number",
+            "Data Type": "pii_phone",
+            "Risk Level": "CONFIDENTIAL",
+            "Confidence": "80%",
+            "Automation Ready": "No",
+            "Recommended Action": "SELECTIVE MASKING - Mask sensitive portions"
+          },
+          {
+            "Field Name": "ssn",
+            "Data Type": "pii_ssn",
+            "Risk Level": "TOP_SECRET",
+            "Confidence": "90%",
+            "Automation Ready": "No",
+            "Recommended Action": "IMMEDIATE TOKENIZATION - Replace with irreversible..."
+          },
+          {
+            "Field Name": "date_of_birth",
+            "Data Type": "unknown",
+            "Risk Level": "PUBLIC",
+            "Confidence": "10%",
+            "Automation Ready": "No",
+            "Recommended Action": "STANDARD HANDLING - No special security measures r..."
+          },
+          {
+            "Field Name": "account_balance",
+            "Data Type": "financial_amount",
+            "Risk Level": "CONFIDENTIAL",
+            "Confidence": "70%",
+            "Automation Ready": "No",
+            "Recommended Action": "SELECTIVE MASKING - Mask sensitive portions"
+          },
+          {
+            "Field Name": "credit_score",
+            "Data Type": "customer_id",
+            "Risk Level": "INTERNAL",
+            "Confidence": "60%",
+            "Automation Ready": "No",
+            "Recommended Action": "ACCESS CONTROL - Restrict to internal personnel"
+          },
+          {
+            "Field Name": "account_type",
+            "Data Type": "unknown",
+            "Risk Level": "PUBLIC",
+            "Confidence": "10%",
+            "Automation Ready": "No",
+            "Recommended Action": "STANDARD HANDLING - No special security measures r..."
+          },
+          {
+            "Field Name": "last_transaction_date",
+            "Data Type": "unknown",
+            "Risk Level": "PUBLIC",
+            "Confidence": "10%",
+            "Automation Ready": "No",
+            "Recommended Action": "STANDARD HANDLING - No special security measures r..."
+          }
+        ]
+      },
+      "speaker_notes": "Reference slide - detailed breakdown of all classified fields",
+      "priority": 8
+    }
+  ],
+  "appendix_data": {
+    "full_classification_data": {
+      "metadata": {
+        "generated_at": "2025-09-19T14:34:08.570940",
+        "total_fields": 10,
+        "ready_for_automation": true
+      },
+      "executive_summary": {
+        "total_fields": 10,
+        "high_risk_count": 4,
+        "automation_ready_count": 1,
+        "average_confidence": 0.51
+      },
+      "field_classifications": {
+        "customer_id": {
+          "data_type": "customer_id",
+          "sensitivity_level": "INTERNAL",
+          "confidence_score": 0.9,
+          "automation_ready": true,
+          "recommended_action": "ACCESS CONTROL - Restrict to internal personnel",
+          "masking_strategy": "Apply appropriate masking based on business requirements",
+          "risk_factors": []
+        },
+        "customer_name": {
+          "data_type": "unknown",
+          "sensitivity_level": "PUBLIC",
+          "confidence_score": 0.1,
+          "automation_ready": false,
+          "recommended_action": "STANDARD HANDLING - No special security measures required",
+          "masking_strategy": "Apply appropriate masking based on business requirements",
+          "risk_factors": []
+        },
+        "email_address": {
+          "data_type": "pii_email",
+          "sensitivity_level": "CONFIDENTIAL",
+          "confidence_score": 0.8,
+          "automation_ready": false,
+          "recommended_action": "SELECTIVE MASKING - Mask sensitive portions",
+          "masking_strategy": "Username + masked domain (john****@****.com)",
+          "risk_factors": [
+            "Contains personally identifiable information"
+          ]
+        },
+        "phone_number": {
+          "data_type": "pii_phone",
+          "sensitivity_level": "CONFIDENTIAL",
+          "confidence_score": 0.8,
+          "automation_ready": false,
+          "recommended_action": "SELECTIVE MASKING - Mask sensitive portions",
+          "masking_strategy": "Apply appropriate masking based on business requirements",
+          "risk_factors": [
+            "Contains personally identifiable information"
+          ]
+        },
+        "ssn": {
+          "data_type": "pii_ssn",
+          "sensitivity_level": "TOP_SECRET",
+          "confidence_score": 0.9,
+          "automation_ready": false,
+          "recommended_action": "IMMEDIATE TOKENIZATION - Replace with irreversible tokens",
+          "masking_strategy": "Full tokenization (XXX-XX-1234)",
+          "risk_factors": [
+            "Contains personally identifiable information"
+          ]
+        },
+        "date_of_birth": {
+          "data_type": "unknown",
+          "sensitivity_level": "PUBLIC",
+          "confidence_score": 0.1,
+          "automation_ready": false,
+          "recommended_action": "STANDARD HANDLING - No special security measures required",
+          "masking_strategy": "Apply appropriate masking based on business requirements",
+          "risk_factors": []
+        },
+        "account_balance": {
+          "data_type": "financial_amount",
+          "sensitivity_level": "CONFIDENTIAL",
+          "confidence_score": 0.7,
+          "automation_ready": false,
+          "recommended_action": "SELECTIVE MASKING - Mask sensitive portions",
+          "masking_strategy": "Range buckets ($1K-$5K)",
+          "risk_factors": [
+            "Contains financial data requiring protection"
+          ]
+        },
+        "credit_score": {
+          "data_type": "customer_id",
+          "sensitivity_level": "INTERNAL",
+          "confidence_score": 0.6,
+          "automation_ready": false,
+          "recommended_action": "ACCESS CONTROL - Restrict to internal personnel",
+          "masking_strategy": "Apply appropriate masking based on business requirements",
+          "risk_factors": []
+        },
+        "account_type": {
+          "data_type": "unknown",
+          "sensitivity_level": "PUBLIC",
+          "confidence_score": 0.1,
+          "automation_ready": false,
+          "recommended_action": "STANDARD HANDLING - No special security measures required",
+          "masking_strategy": "Apply appropriate masking based on business requirements",
+          "risk_factors": []
+        },
+        "last_transaction_date": {
+          "data_type": "unknown",
+          "sensitivity_level": "PUBLIC",
+          "confidence_score": 0.1,
+          "automation_ready": false,
+          "recommended_action": "STANDARD HANDLING - No special security measures required",
+          "masking_strategy": "Apply appropriate masking based on business requirements",
+          "risk_factors": []
+        }
+      }
+    },
+    "generation_timestamp": "2025-09-19T14:34:08.571298",
+    "field_count": 10
+  },
+  "metadata": {
+    "generated_by": "Universal Content Engine v1.0",
+    "source_file": "sample_classification.json",
+    "slide_count": 8,
+    "company_context": "Operations Team Analysis"
+  },
+  "formatting_hints": {
+    "powerpoint": {
+      "slide_dimensions": "16:9",
+      "font_family": "Calibri",
+      "title_size": 44,
+      "content_size": 24,
+      "color_scheme": "corporate"
+    },
+    "web_presentation": {
+      "framework": "reveal.js",
+      "theme": "white",
+      "transition": "slide"
+    },
+    "pdf_report": {
+      "page_size": "letter",
+      "margins": "1 inch",
+      "font_family": "Arial"
+    }
+  }
+}
