@@ -39,20 +39,32 @@ The Universal Automation Platform is a Python-based system designed to achieve m
    - Executive-level slide structure and formatting
    - Charts, tables, and visual data representation
 
-4. **Data Ingestion Layer** (Future)
-   - CSV/Excel file processing
-   - Database connectivity
-   - API data retrieval
-   - Data quality assessment and cleaning
+4. **Tier0 Web Application Interface**
+   - Interactive Streamlit-based dashboard
+   - Real-time data visualization and analytics
+   - Multi-language support (German/English corporate environments)
+   - Advanced machine learning analytics (clustering, PCA, anomaly detection)
+   - Interactive data upload and processing
+   - Live chart generation and statistical analysis
+   - Executive dashboard with key performance indicators
+
+5. **Data Ingestion Layer** (Enhanced)
+   - CSV/Excel file processing via web interface and CLI
+   - Database connectivity and API data retrieval
+   - Interactive file upload through web dashboard
+   - Data quality assessment and cleaning with real-time feedback
 
 ### System Flow
 
 ```
-Raw Data → Classification Engine → Content Generation → PowerPoint Generation → Business Output
+Raw Data → Classification Engine → Content Generation → Output Generation → Business Output
     ↓              ↓                    ↓                      ↓                    ↓
 [CSV/Excel]   [Risk Analysis]    [Presentation Content]  [.pptx File Creation]  [Executive Presentations]
 [Database]    [Sensitivity Levels] [Business Narratives]  [Company Templates]    [Automated Workflows]
 [API Data]    [Automation Ready]   [Chart Data]           [Brand Compliance]     [Process Optimization]
+    ↓              ↓                    ↓                      ↓                    ↓
+[Streamlit]   [Interactive UI]   [Real-time Analytics]   [Web Dashboard]        [Live Visualizations]
+[Web Upload]  [ML Analytics]     [Dynamic Charts]        [Multi-language UI]    [Interactive Reports]
 ```
 
 **Primary Use Cases:**
@@ -68,6 +80,12 @@ Raw Data → Classification Engine → Content Generation → PowerPoint Generat
 - Process: Classification → Pattern analysis → Automation recommendations
 - Output: Automated decision frameworks, alerts, and process optimizations
 - ROI Metric: Process efficiency gains × cost per manual intervention
+
+**Use Case 3: Interactive Web-Based Analytics**
+- Input: Data uploaded through web interface or connected data sources
+- Process: Real-time classification → ML-powered analytics → Interactive visualizations
+- Output: Live dashboards, interactive reports, executive summaries with drill-down capabilities
+- ROI Metric: Reduced analysis time × improved decision-making speed × stakeholder accessibility
 
 ## Security Architecture
 
@@ -154,18 +172,24 @@ Raw Data → Classification Engine → Content Generation → PowerPoint Generat
 ### Technology Stack
 
 - **Programming Language:** Python 3.13+
-- **Core Libraries:** pandas, numpy, json, re, python-pptx
-- **Data Processing:** Native Python (no external AI APIs)
+- **Core Libraries:** pandas, numpy, json, re, python-pptx, openpyxl
+- **Web Framework:** Streamlit for interactive dashboard and user interface
+- **Data Visualization:** Plotly, Seaborn, Matplotlib for advanced charting
+- **Machine Learning:** scikit-learn for clustering, PCA, and anomaly detection
+- **Data Processing:** Native Python with enhanced analytics capabilities
 - **Presentation Generation:** python-pptx library for PowerPoint file creation
-- **Output Format:** JSON, CSV, PowerPoint (.pptx)
-- **Deployment:** Standalone executable or Python scripts
+- **Output Format:** JSON, CSV, PowerPoint (.pptx), Interactive web dashboards
+- **Deployment:** Standalone executable, Python scripts, or web application server
+- **Multi-language Support:** German and English interface localization
 
 ### System Requirements
 
-- **Operating System:** Windows 10/11
-- **Memory:** 4GB RAM minimum, 8GB recommended
-- **Storage:** 1GB free space
-- **Python Dependencies:** pandas, numpy (no internet-dependent libraries)
+- **Operating System:** Windows 10/11, macOS 10.15+, Linux Ubuntu 18.04+
+- **Memory:** 4GB RAM minimum, 8GB recommended for web application
+- **Storage:** 1GB free space for application and temporary files
+- **Network:** Internet connection for web application deployment (optional for standalone use)
+- **Python Dependencies:** pandas, numpy, streamlit, plotly, scikit-learn, openpyxl
+- **Web Browser:** Modern browser (Chrome, Firefox, Safari, Edge) for web interface
 
 ### Data Processing Capabilities
 
@@ -178,15 +202,29 @@ Raw Data → Classification Engine → Content Generation → PowerPoint Generat
 **Analysis Capabilities:**
 - Pattern recognition for PII, financial data, business identifiers
 - Content analysis using regex and heuristic algorithms
-- Business context inference
-- Data quality assessment
-- Risk factor identification
+- Business context inference and data quality assessment
+- Risk factor identification and security classification
+- **Machine Learning Analytics:**
+  - K-means clustering for data segmentation
+  - Principal Component Analysis (PCA) for dimensionality reduction
+  - Isolation Forest for anomaly detection
+  - Statistical correlation analysis and trend identification
+- **Real-time Interactive Analysis:**
+  - Live data exploration through web interface
+  - Dynamic filtering and drill-down capabilities
+  - Interactive statistical summaries and visualizations
 
 **Output Formats:**
 - JSON (structured data for import into presentation tools)
 - CSV (tabular analysis results)
 - PowerPoint (.pptx) files with company branding and templates
 - Text reports (executive summaries)
+- **Interactive Web Outputs:**
+  - Live dashboard with real-time analytics
+  - Interactive charts and visualizations (Plotly-based)
+  - Downloadable reports and data exports
+  - Multi-language interface (German/English)
+  - Executive summary pages with drill-down capabilities
 
 ### PowerPoint Generation Capabilities
 
@@ -288,35 +326,53 @@ Raw Data → Classification Engine → Content Generation → PowerPoint Generat
 
 **File Organization:**
 ```
-AI_Automation_Platform/
-├── classifiers/
-│   ├── enhanced_classifier.py
-│   └── classification_results/
-├── content_generation/
-│   ├── universal_content_engine.py
-│   └── presentation_outputs/
-├── data/
-│   ├── test_datasets/
-│   └── user_uploads/
-├── documentation/
-│   └── system_design.md
-└── utilities/
-    ├── data_generator.py
-    └── testing_scripts/
+universal-automation-platform/
+├── src/                           # Core application code
+│   ├── enhanced_classifier.py     # AI classification engine
+│   ├── universal_content_engine.py # Content generation
+│   └── sap_powerpoint_generator.py # PowerPoint creation
+├── Tier0/                         # Web application interface
+│   ├── app.py                     # Main German application
+│   ├── app_english.py             # English version
+│   ├── advanced_ai_analytics.py   # ML analytics engine
+│   ├── german_corporate_powerpoint.py # Localized PowerPoint generation
+│   └── integration_test.py        # Web app testing
+├── tests/                         # Test suites and validation
+├── docs/                          # Documentation
+│   └── system_design_document.md
+├── examples/                      # Example data and outputs
+│   └── sample_data/
+├── requirements.txt               # Python dependencies
+└── README.md                     # Project documentation
 ```
 
 ### Production Deployment
 
-**Authorized User Distribution:**
-- Compiled Python executable (.exe)
+**Multiple Deployment Options:**
+
+**1. Web Application Deployment:**
+- Streamlit server deployment for enterprise access
+- Browser-based interface accessible across network
+- Multi-user concurrent access with session management
+- Multi-language interface (German/English) for international teams
+- Real-time collaborative analytics and dashboard sharing
+
+**2. Standalone Executable Distribution:**
+- Compiled Python executable (.exe) for offline use
 - Standalone operation (no Python installation required)
-- Whitelist embedded in executable
-- Simple double-click operation
+- Whitelist embedded in executable for security
+- Simple double-click operation for immediate access
+
+**3. Hybrid Deployment:**
+- Web application for interactive analysis and collaboration
+- CLI tools for automated batch processing and integration
+- PowerPoint generation available through both interfaces
 
 **Access Management:**
-- Initial whitelist defined by system administrator
-- Updates require new executable distribution
-- Users notified of authorization status on startup
+- Web application: Role-based access control with authentication
+- Standalone: Initial whitelist defined by system administrator
+- Multi-language user interface for international deployment
+- Session management and audit logging across all access methods
 
 ## Risk Assessment and Mitigation
 
@@ -404,6 +460,16 @@ AI_Automation_Platform/
 - ✅ Comprehensive error handling and dependency management
 - ✅ End-to-end workflow validation
 
+### Phase 1.5: Interactive Web Application ✅ COMPLETED
+- ✅ Tier0 Streamlit Web Application - **PRODUCTION READY**
+- ✅ Interactive dashboard with real-time analytics
+- ✅ Multi-language support (German/English)
+- ✅ Advanced machine learning integration (clustering, PCA, anomaly detection)
+- ✅ Interactive data visualization with Plotly
+- ✅ Web-based file upload and processing
+- ✅ Executive dashboard with live KPI monitoring
+- ✅ Multi-deployment architecture (web + standalone)
+
 ### Phase 2: Enhanced Security and Production Readiness (30-60 days)
 - 📋 Complete OWASP Top 10 compliance implementation
 - 📋 Comprehensive audit logging system
@@ -477,12 +543,14 @@ AI_Automation_Platform/
 ---
 
 **Document Control:**
-- **Version:** 2.0 (Updated with Quality Improvements)
-- **Last Updated:** September 19, 2025
+- **Version:** 3.0 (Updated with Tier0 Web Application)
+- **Last Updated:** September 22, 2025
 - **Quality Status:** Production Ready (87/100 score)
+- **Platform Status:** Multi-interface deployment ready (CLI + Web)
 - **Next Review Date:** December 2025
 - **Distribution:** Authorized personnel only
 
 ### Version History
 - **v1.0** (November 2024): Initial system design and architecture
 - **v2.0** (September 2025): Quality improvements, production readiness, comprehensive testing
+- **v3.0** (September 2025): Tier0 web application integration, multi-language support, advanced ML analytics
