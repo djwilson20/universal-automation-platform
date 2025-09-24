@@ -1,0 +1,36 @@
+# Development and Testing Dependencies
+pytest>=7.4.0
+pytest-cov>=4.1.0
+pytest-xdist>=3.3.0
+pytest-mock>=3.11.0
+pytest-asyncio>=0.21.0
+
+# Code Quality
+black>=23.7.0
+isort>=5.12.0
+flake8>=6.0.0
+pylint>=2.17.0
+mypy>=1.5.0
+
+# Security
+bandit>=1.7.5
+safety>=2.3.0
+
+# Documentation
+sphinx>=7.1.0
+sphinx-rtd-theme>=1.3.0
+
+# Development Tools
+pre-commit>=3.3.0
+tox>=4.6.0
+
+# Additional testing libraries for AI/ML
+scikit-learn>=1.3.0
+matplotlib>=3.7.0
+seaborn>=0.12.0
+plotly>=5.15.0
+streamlit>=1.25.0
+
+# For integration testing
+requests>=2.31.0
+responses>=0.23.0

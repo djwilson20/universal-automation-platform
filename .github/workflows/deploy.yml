@@ -1,0 +1,269 @@
+name: Multi-Environment Deployment
+
+on:
+  push:
+    branches:
+      - develop  # Deploy to staging
+      - main     # Deploy to production
+    tags:
+      - 'v*'     # Deploy releases to production
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+        - staging
+        - production
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  build-image:
+    name: Build Docker Image
+    runs-on: ubuntu-latest
+    outputs:
+      image-tag: ${{ steps.meta.outputs.tags }}
+      image-digest: ${{ steps.build.outputs.digest }}
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Log in to Container Registry
+      uses: docker/login-action@v3
+      with:
+        registry: ${{ env.REGISTRY }}
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Extract metadata
+      id: meta
+      uses: docker/metadata-action@v5
+      with:
+        images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+        tags: |
+          type=ref,event=branch
+          type=ref,event=pr
+          type=semver,pattern={{version}}
+          type=semver,pattern={{major}}.{{minor}}
+          type=sha,prefix={{branch}}-
+
+    - name: Build and push Docker image
+      id: build
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        push: true
+        tags: ${{ steps.meta.outputs.tags }}
+        labels: ${{ steps.meta.outputs.labels }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+
+  deploy-staging:
+    name: Deploy to Staging
+    runs-on: ubuntu-latest
+    needs: build-image
+    if: github.ref == 'refs/heads/develop' || (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'staging')
+    environment:
+      name: staging
+      url: https://staging.ai-automation-platform.com
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: us-east-1
+
+    - name: Deploy to ECS Staging
+      run: |
+        # Update ECS service with new image
+        aws ecs update-service \
+          --cluster ai-automation-staging \
+          --service ai-automation-service \
+          --task-definition ai-automation-staging:${{ github.sha }} \
+          --force-new-deployment
+
+    - name: Wait for deployment
+      run: |
+        aws ecs wait services-stable \
+          --cluster ai-automation-staging \
+          --services ai-automation-service
+
+    - name: Run health checks
+      run: |
+        echo "Running health checks for staging deployment..."
+        curl -f https://staging.ai-automation-platform.com/health || exit 1
+
+    - name: Run smoke tests
+      run: |
+        echo "Running smoke tests..."
+        python -m pytest tests/smoke/ --env=staging -v
+
+    - name: Notify deployment
+      uses: 8398a7/action-slack@v3
+      with:
+        status: ${{ job.status }}
+        channel: '#deployments'
+        text: 'Staging deployment completed successfully! :rocket:'
+      env:
+        SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK }}
+
+  deploy-production:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    needs: [build-image, deploy-staging]
+    if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'production')
+    environment:
+      name: production
+      url: https://ai-automation-platform.com
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: us-east-1
+
+    - name: Blue-Green Deployment Setup
+      run: |
+        echo "Setting up blue-green deployment..."
+        # Create new task definition for green environment
+        aws ecs register-task-definition \
+          --cli-input-json file://deploy/production/task-definition.json
+
+    - name: Deploy to Production (Green)
+      run: |
+        # Deploy to green environment first
+        aws ecs update-service \
+          --cluster ai-automation-production \
+          --service ai-automation-service-green \
+          --task-definition ai-automation-production:${{ github.sha }} \
+          --desired-count 2
+
+    - name: Health Check Green Environment
+      run: |
+        echo "Health checking green environment..."
+        aws ecs wait services-stable \
+          --cluster ai-automation-production \
+          --services ai-automation-service-green
+
+        # Run health checks
+        for i in {1..10}; do
+          if curl -f https://green.ai-automation-platform.com/health; then
+            echo "Green environment healthy"
+            break
+          fi
+          echo "Attempt $i failed, retrying in 30s..."
+          sleep 30
+        done
+
+    - name: Run Production Tests
+      run: |
+        echo "Running production acceptance tests..."
+        python -m pytest tests/acceptance/ --env=production-green -v
+
+    - name: Switch Traffic to Green
+      run: |
+        echo "Switching traffic to green environment..."
+        # Update load balancer to point to green
+        aws elbv2 modify-listener \
+          --listener-arn ${{ secrets.PROD_LISTENER_ARN }} \
+          --default-actions Type=forward,TargetGroupArn=${{ secrets.GREEN_TARGET_GROUP_ARN }}
+
+    - name: Monitor Production Metrics
+      run: |
+        echo "Monitoring production metrics for 5 minutes..."
+        sleep 300
+        # Check CloudWatch metrics
+        python scripts/check_metrics.py --environment=production
+
+    - name: Cleanup Blue Environment
+      run: |
+        echo "Scaling down blue environment..."
+        aws ecs update-service \
+          --cluster ai-automation-production \
+          --service ai-automation-service-blue \
+          --desired-count 0
+
+    - name: Notify successful deployment
+      uses: 8398a7/action-slack@v3
+      with:
+        status: 'success'
+        channel: '#deployments'
+        text: 'Production deployment completed successfully! :tada:'
+      env:
+        SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK }}
+
+    - name: Create GitHub Release
+      if: startsWith(github.ref, 'refs/tags/v')
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ github.ref_name }}
+        release_name: Release ${{ github.ref_name }}
+        body: |
+          ## Changes in this Release
+          - Automated deployment from ${{ github.sha }}
+          - Successfully deployed to production
+
+          ## Deployment Info
+          - Image: ${{ needs.build-image.outputs.image-tag }}
+          - Digest: ${{ needs.build-image.outputs.image-digest }}
+        draft: false
+        prerelease: false
+
+  rollback:
+    name: Rollback Deployment
+    runs-on: ubuntu-latest
+    if: failure() && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))
+    needs: [deploy-production]
+    environment: production
+
+    steps:
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: us-east-1
+
+    - name: Rollback to Blue Environment
+      run: |
+        echo "Rolling back to blue environment..."
+        aws elbv2 modify-listener \
+          --listener-arn ${{ secrets.PROD_LISTENER_ARN }} \
+          --default-actions Type=forward,TargetGroupArn=${{ secrets.BLUE_TARGET_GROUP_ARN }}
+
+    - name: Scale up Blue Environment
+      run: |
+        aws ecs update-service \
+          --cluster ai-automation-production \
+          --service ai-automation-service-blue \
+          --desired-count 2
+
+    - name: Notify rollback
+      uses: 8398a7/action-slack@v3
+      with:
+        status: 'warning'
+        channel: '#deployments'
+        text: 'Production deployment rolled back due to failure! :warning:'
+      env:
+        SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK }}
