@@ -877,10 +877,13 @@ def display_anomaly_analysis(anomaly_results, anomaly_data, df):
     if len(anomaly_results['confidence']) > 0:
         fig = go.Figure(data=go.Histogram(
             x=anomaly_results['confidence'],
-            nbinsx=10,
-            title="Anomaly Confidence Distribution"
+            nbinsx=10
         ))
-        fig.update_layout(xaxis_title="Confidence Score", yaxis_title="Number of Anomalies")
+        fig.update_layout(
+            title="Anomaly Confidence Distribution",
+            xaxis_title="Confidence Score",
+            yaxis_title="Number of Anomalies"
+        )
         st.plotly_chart(fig, width="stretch")
 
     # Show high-confidence anomalies

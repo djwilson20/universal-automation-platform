@@ -21,12 +21,16 @@ from pptx.enum.text import PP_ALIGN
 import warnings
 import time
 import traceback
-from advanced_ai_analytics import AdvancedAIAnalytics
-
 warnings.filterwarnings('ignore')
 
-# Initialize advanced AI analytics engine
-ai_analytics = AdvancedAIAnalytics()
+# Use the same safe analytics as the English version
+# Import the safe analytics from app_english.py
+import sys
+sys.path.append('/home/djwil/tier0_app.py')
+from app_english import EnterpriseAIAnalytics
+
+# Initialize safe AI analytics engine
+ai_analytics = EnterpriseAIAnalytics()
 
 # Configure page with German corporate branding
 st.set_page_config(
@@ -427,7 +431,7 @@ def display_statistical_analysis(df, numeric_cols):
 
     if len(numeric_cols) > 0:
         stats_df = df[numeric_cols].describe().round(3)
-        st.dataframe(stats_df, use_container_width=True)
+        st.dataframe(stats_df, width="stretch")
 
         # Additional statistics
         col1, col2 = st.columns(2)
@@ -468,7 +472,7 @@ def display_correlation_analysis(df, numeric_cols):
             width=700,
             height=500
         )
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width="stretch")
 
         # Highlight strong correlations
         strong_corrs = []
@@ -751,7 +755,7 @@ def display_enhanced_statistical_analysis(df, numeric_cols):
     if len(numeric_cols) > 0:
         # Basic statistics with enhanced interpretation
         stats_df = df[numeric_cols].describe().round(4)
-        st.dataframe(stats_df, use_container_width=True)
+        st.dataframe(stats_df, width="stretch")
 
         # Advanced statistical tests
         col1, col2 = st.columns(2)
@@ -808,7 +812,7 @@ def display_advanced_correlation_analysis(correlation_results):
             color_continuous_scale="RdBu",
             zmin=-1, zmax=1
         )
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width="stretch")
 
     with col2:
         st.markdown("#### Spearman Korrelation (Rang-basiert)")
@@ -819,7 +823,7 @@ def display_advanced_correlation_analysis(correlation_results):
             color_continuous_scale="RdBu",
             zmin=-1, zmax=1
         )
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width="stretch")
 
     # Partial correlations
     if correlation_results['partial_correlations']:
@@ -872,11 +876,14 @@ def display_enhanced_anomaly_analysis(anomaly_results, anomaly_data, df):
     if len(anomaly_results['confidence']) > 0:
         fig = go.Figure(data=go.Histogram(
             x=anomaly_results['confidence'],
-            nbinsx=10,
-            title="Verteilung der Anomalie-Konfidenz"
+            nbinsx=10
         ))
-        fig.update_layout(xaxis_title="Konfidenz-Score", yaxis_title="Anzahl Anomalien")
-        st.plotly_chart(fig, use_container_width=True)
+        fig.update_layout(
+            title="Verteilung der Anomalie-Konfidenz",
+            xaxis_title="Konfidenz-Score",
+            yaxis_title="Anzahl Anomalien"
+        )
+        st.plotly_chart(fig, width="stretch")
 
     # Show high-confidence anomalies
     if n_anomalies > 0:
@@ -885,7 +892,7 @@ def display_enhanced_anomaly_analysis(anomaly_results, anomaly_data, df):
             st.markdown("#### 🔴 Hochkonfidente Anomalien")
             high_conf_indices = anomaly_results['indices'][high_conf_mask]
             with st.expander(f"{len(high_conf_indices)} hochkonfidente Anomalien anzeigen", expanded=False):
-                st.dataframe(df.loc[high_conf_indices], use_container_width=True)
+                st.dataframe(df.loc[high_conf_indices], width="stretch")
 
 def display_advanced_forecasting_analysis(trend_results, target_col):
     """Display sophisticated forecasting analysis"""
@@ -926,7 +933,7 @@ def display_advanced_forecasting_analysis(trend_results, target_col):
         fig.add_trace(go.Scatter(x=x_values, y=decomp['residual'], name='Rest'), row=4, col=1)
 
         fig.update_layout(height=800, title_text="Zeitreihen-Zerlegung")
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width="stretch")
 
     # Change points
     if trend_results.get('change_points') and len(trend_results['change_points']) > 0:
@@ -993,7 +1000,7 @@ def display_advanced_forecasting_analysis(trend_results, target_col):
             xaxis_title="Zeit",
             yaxis_title=target_col
         )
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width="stretch")
 
         # Show forecast table
         with st.expander("📊 Prognose-Details", expanded=False):
@@ -1003,7 +1010,7 @@ def display_advanced_forecasting_analysis(trend_results, target_col):
                 'Untere Grenze': enhanced['confidence_lower'].round(2),
                 'Obere Grenze': enhanced['confidence_upper'].round(2)
             })
-            st.dataframe(forecast_df, use_container_width=True)
+            st.dataframe(forecast_df, width="stretch")
 
     # ARIMA forecasting results (legacy)
     elif trend_results.get('arima_forecast'):
@@ -1040,7 +1047,7 @@ def display_advanced_forecasting_analysis(trend_results, target_col):
         ))
 
         fig.update_layout(title="ARIMA Prognose-Modell", xaxis_title="Zeit", yaxis_title=target_col)
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width="stretch")
 
 def display_gdpr_compliance_analysis(gdpr_results):
     """Display GDPR compliance assessment"""
@@ -1332,7 +1339,7 @@ if uploaded_file:
 
         # Data preview
         with st.expander("🔍 Datenvorschau", expanded=False):
-            st.dataframe(df.head(10), use_container_width=True)
+            st.dataframe(df.head(10), width="stretch")
 
         # Analysis button
         if st.button("🚀 Intelligente Analyse starten", type="primary"):
@@ -1378,7 +1385,7 @@ with col1:
 
         st.session_state['demo_data'] = sample_data
         st.success("✅ Demo-Daten geladen! Bereit für Analyse.")
-        st.dataframe(sample_data.head(10), use_container_width=True)
+        st.dataframe(sample_data.head(10), width="stretch")
 
 with col2:
     if 'demo_data' in st.session_state:
