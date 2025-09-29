@@ -1471,8 +1471,191 @@ def create_sap_visualization(df, chart_type="overview"):
 
     return None
 
+def aggregate_multi_source_data(df, insights, pptx_data=None, docx_data=None):
+    """Aggregate and correlate data from all input sources for unified executive insights"""
+    try:
+        aggregated = {
+            'executive_summary': {
+                'total_data_sources': 0,
+                'total_data_points': 0,
+                'total_content_items': 0,
+                'data_quality_score': 0,
+                'key_metrics': [],
+                'main_insights': [],
+                'recommendations': []
+            },
+            'data_overview': {
+                'csv_excel_summary': None,
+                'document_summary': None,
+                'presentation_summary': None
+            },
+            'cross_source_insights': {
+                'common_themes': [],
+                'data_correlations': [],
+                'content_patterns': [],
+                'decision_alignment': []
+            },
+            'unified_metrics': {
+                'total_records': 0,
+                'total_words': 0,
+                'total_slides': 0,
+                'total_tables': 0,
+                'total_decisions': 0,
+                'total_key_points': 0
+            }
+        }
+
+        source_count = 0
+
+        # Process CSV/Excel data
+        if df is not None and insights:
+            source_count += 1
+            aggregated['unified_metrics']['total_records'] = len(df)
+            aggregated['unified_metrics']['total_tables'] += 1
+
+            if insights.get('summary_stats') is not None and not insights['summary_stats'].empty:
+                aggregated['data_overview']['csv_excel_summary'] = {
+                    'shape': df.shape,
+                    'numeric_columns': len(df.select_dtypes(include=[np.number]).columns),
+                    'quality_metrics': insights.get('quality_metrics', {}),
+                    'key_columns': list(df.columns)[:5]
+                }
+
+                # Extract key metrics from data
+                numeric_cols = df.select_dtypes(include=[np.number]).columns
+                if len(numeric_cols) > 0:
+                    for col in numeric_cols[:3]:  # Top 3 numeric columns
+                        if df[col].notna().sum() > 0:
+                            aggregated['executive_summary']['key_metrics'].append({
+                                'metric': col,
+                                'value': f"{df[col].mean():.2f}" if df[col].dtype in ['float64', 'int64'] else str(df[col].iloc[0]),
+                                'source': 'Data Analysis',
+                                'type': 'numeric'
+                            })
+
+        # Process Word document data
+        if docx_data:
+            if isinstance(docx_data, dict) and 'combined_stats' in docx_data:
+                # Multiple documents merged
+                source_count += docx_data['combined_stats']['total_documents']
+                aggregated['unified_metrics']['total_words'] = docx_data['combined_stats']['total_words']
+                aggregated['unified_metrics']['total_decisions'] = docx_data['combined_stats']['total_decisions']
+                aggregated['unified_metrics']['total_key_points'] = docx_data['combined_stats']['total_key_points']
+                aggregated['unified_metrics']['total_tables'] += docx_data['combined_stats']['data_tables_found']
+
+                aggregated['data_overview']['document_summary'] = {
+                    'document_count': docx_data['combined_stats']['total_documents'],
+                    'total_words': docx_data['combined_stats']['total_words'],
+                    'key_points': len(docx_data.get('all_key_points', [])),
+                    'decisions': len(docx_data.get('all_decisions', [])),
+                    'authors': docx_data.get('authors', [])
+                }
+
+                # Extract top insights from documents
+                for point_data in docx_data.get('all_key_points', [])[:5]:
+                    aggregated['executive_summary']['main_insights'].append({
+                        'content': point_data['content'],
+                        'source': f"Document: {point_data['source']}",
+                        'type': 'key_point'
+                    })
+
+                for decision_data in docx_data.get('all_decisions', [])[:3]:
+                    aggregated['executive_summary']['main_insights'].append({
+                        'content': decision_data['content'],
+                        'source': f"Document: {decision_data['source']}",
+                        'type': 'decision'
+                    })
+
+            elif isinstance(docx_data, dict) and 'document_stats' in docx_data:
+                # Single document
+                source_count += 1
+                doc_stats = docx_data['document_stats']
+                aggregated['unified_metrics']['total_words'] = doc_stats['total_words']
+                aggregated['unified_metrics']['total_decisions'] = doc_stats['decisions_found']
+                aggregated['unified_metrics']['total_key_points'] = doc_stats['key_points_found']
+                aggregated['unified_metrics']['total_tables'] += doc_stats['data_tables_found']
+
+        # Process PowerPoint data
+        if pptx_data:
+            if isinstance(pptx_data, dict) and 'combined_stats' in pptx_data:
+                # Multiple presentations merged
+                source_count += pptx_data['combined_stats']['total_presentations']
+                aggregated['unified_metrics']['total_slides'] = pptx_data['combined_stats']['total_slides']
+                aggregated['unified_metrics']['total_words'] += pptx_data['combined_stats']['total_words']
+                aggregated['unified_metrics']['total_tables'] += pptx_data['combined_stats']['total_tables']
+
+                aggregated['data_overview']['presentation_summary'] = {
+                    'presentation_count': pptx_data['combined_stats']['total_presentations'],
+                    'total_slides': pptx_data['combined_stats']['total_slides'],
+                    'total_words': pptx_data['combined_stats']['total_words'],
+                    'total_tables': pptx_data['combined_stats']['total_tables']
+                }
+
+            elif isinstance(pptx_data, dict) and 'slide_count' in pptx_data:
+                # Single presentation
+                source_count += 1
+                aggregated['unified_metrics']['total_slides'] = pptx_data['slide_count']
+                total_words = sum(len(text.split()) for text in pptx_data.get('text_content', []))
+                aggregated['unified_metrics']['total_words'] += total_words
+                aggregated['unified_metrics']['total_tables'] += len(pptx_data.get('tables', []))
+
+        # Calculate overall metrics
+        aggregated['executive_summary']['total_data_sources'] = source_count
+        aggregated['executive_summary']['total_data_points'] = (
+            aggregated['unified_metrics']['total_records'] +
+            aggregated['unified_metrics']['total_words'] +
+            aggregated['unified_metrics']['total_slides']
+        )
+        aggregated['executive_summary']['total_content_items'] = (
+            aggregated['unified_metrics']['total_key_points'] +
+            aggregated['unified_metrics']['total_decisions'] +
+            aggregated['unified_metrics']['total_tables']
+        )
+
+        # Calculate data quality score
+        quality_factors = []
+        if df is not None and insights and insights.get('quality_metrics'):
+            quality_factors.append(insights['quality_metrics'].get('completeness_pct', 0))
+        if aggregated['unified_metrics']['total_words'] > 0:
+            quality_factors.append(min(100, aggregated['unified_metrics']['total_words'] / 100))  # Word richness
+        if aggregated['unified_metrics']['total_content_items'] > 0:
+            quality_factors.append(min(100, aggregated['unified_metrics']['total_content_items'] * 10))  # Content richness
+
+        aggregated['executive_summary']['data_quality_score'] = sum(quality_factors) / len(quality_factors) if quality_factors else 0
+
+        # Generate unified recommendations
+        recommendations = []
+        if aggregated['unified_metrics']['total_records'] > 1000:
+            recommendations.append("Consider implementing automated data processing workflows")
+        if aggregated['unified_metrics']['total_decisions'] > 5:
+            recommendations.append("Establish decision tracking and follow-up processes")
+        if aggregated['unified_metrics']['total_key_points'] > 10:
+            recommendations.append("Create centralized knowledge management system")
+        if source_count > 3:
+            recommendations.append("Implement unified data governance across all sources")
+
+        aggregated['executive_summary']['recommendations'] = recommendations
+
+        # Identify cross-source patterns
+        if source_count > 1:
+            themes = []
+            if aggregated['unified_metrics']['total_decisions'] > 0 and aggregated['unified_metrics']['total_records'] > 0:
+                themes.append("Data-driven decision making is evident across sources")
+            if aggregated['unified_metrics']['total_tables'] > 2:
+                themes.append("Structured data analysis is a common theme")
+            if aggregated['unified_metrics']['total_words'] > 5000:
+                themes.append("Rich content documentation supports business processes")
+
+            aggregated['cross_source_insights']['common_themes'] = themes
+
+        return aggregated
+
+    except Exception as e:
+        st.error(f"Error aggregating multi-source data: {str(e)}")
+        return None
+
 def generate_sap_powerpoint_report(df, insights, pptx_data=None, docx_data=None):
-    """Generate professional SAP-style PowerPoint report"""
+    """Generate unified executive SAP-style PowerPoint report aggregating all input sources"""
     try:
         # Check if template should be used
         use_template_styling = ('template_learned' in st.session_state and
@@ -1510,6 +1693,23 @@ def generate_sap_powerpoint_report(df, insights, pptx_data=None, docx_data=None)
                        if use_template_styling and template_analyzer.learned_styles['primary_font']
                        else 'Calibri')
 
+        # Aggregate data from all sources for unified analysis
+        aggregated_insights = aggregate_multi_source_data(df, insights, pptx_data, docx_data)
+
+        # Configure report settings based on aggregated data
+        if aggregated_insights:
+            source_count = aggregated_insights['executive_summary']['total_data_sources']
+            total_points = aggregated_insights['executive_summary']['total_data_points']
+            report_title = f"Executive Summary Report - {source_count} Data Source{'s' if source_count != 1 else ''}"
+        else:
+            report_title = "SAP Enterprise Analytics Report"
+            total_points = 0
+
+        include_summary = True
+        include_data_overview = bool(df is not None)
+        include_document_analysis = bool(docx_data)
+        include_presentation_analysis = bool(pptx_data)
+
         # Title slide
         title_slide_layout = prs.slide_layouts[0]
         slide = prs.slides.add_slide(title_slide_layout)
@@ -1523,9 +1723,9 @@ def generate_sap_powerpoint_report(df, insights, pptx_data=None, docx_data=None)
 
         title.text = report_title
         if use_template_styling:
-            subtitle.text = f"Generated on {datetime.now().strftime('%B %d, %Y')}\nTemplate-based SAP Analysis"
+            subtitle.text = f"Unified Business Intelligence Analysis\n{total_points:,} Data Points | {datetime.now().strftime('%B %d, %Y')}"
         else:
-            subtitle.text = f"Generated on {datetime.now().strftime('%B %d, %Y')}\nSAP Universal Automation Platform"
+            subtitle.text = f"Unified Business Intelligence Analysis\n{total_points:,} Data Points | {datetime.now().strftime('%B %d, %Y')}"
 
         # Format title with template styling
         title_paragraph = title.text_frame.paragraphs[0]
@@ -1534,8 +1734,8 @@ def generate_sap_powerpoint_report(df, insights, pptx_data=None, docx_data=None)
         title_paragraph.font.bold = True
         title_paragraph.font.name = primary_font
 
-        # Executive Summary slide
-        if include_summary and insights:
+        # Unified Executive Summary slide
+        if include_summary and aggregated_insights:
             bullet_slide_layout = prs.slide_layouts[1]
             slide = prs.slides.add_slide(bullet_slide_layout)
 
@@ -1552,26 +1752,141 @@ def generate_sap_powerpoint_report(df, insights, pptx_data=None, docx_data=None)
             title_paragraph.font.name = primary_font
 
             tf = body.text_frame
-            tf.text = "Data Processing Results"
+            exec_summary = aggregated_insights['executive_summary']
+            unified_metrics = aggregated_insights['unified_metrics']
 
-            if df is not None:
+            tf.text = f"Unified Analysis of {exec_summary['total_data_sources']} Data Sources"
+
+            # Key metrics overview
+            p = tf.add_paragraph()
+            p.text = f"• Total Data Points Analyzed: {exec_summary['total_data_points']:,}"
+            p.level = 1
+
+            p = tf.add_paragraph()
+            p.text = f"• Content Items Extracted: {exec_summary['total_content_items']}"
+            p.level = 1
+
+            p = tf.add_paragraph()
+            p.text = f"• Overall Quality Score: {exec_summary['data_quality_score']:.1f}%"
+            p.level = 1
+
+            # Detailed breakdown
+            if unified_metrics['total_records'] > 0:
                 p = tf.add_paragraph()
-                p.text = f"• Total Records: {len(df):,}"
+                p.text = f"• Structured Data Records: {unified_metrics['total_records']:,}"
                 p.level = 1
 
+            if unified_metrics['total_words'] > 0:
                 p = tf.add_paragraph()
-                p.text = f"• Data Columns: {len(df.columns)}"
+                p.text = f"• Document Content: {unified_metrics['total_words']:,} words"
                 p.level = 1
 
-                quality_metrics = sap_processor.analyze_data_quality(df)
-                if quality_metrics:
+            if unified_metrics['total_slides'] > 0:
+                p = tf.add_paragraph()
+                p.text = f"• Presentation Content: {unified_metrics['total_slides']} slides"
+                p.level = 1
+
+            if unified_metrics['total_decisions'] > 0:
+                p = tf.add_paragraph()
+                p.text = f"• Business Decisions Identified: {unified_metrics['total_decisions']}"
+                p.level = 1
+
+            if unified_metrics['total_key_points'] > 0:
+                p = tf.add_paragraph()
+                p.text = f"• Key Insights Extracted: {unified_metrics['total_key_points']}"
+                p.level = 1
+
+        # Key Insights and Recommendations slide
+        if aggregated_insights and (aggregated_insights['executive_summary']['main_insights'] or
+                                   aggregated_insights['executive_summary']['recommendations']):
+            bullet_slide_layout = prs.slide_layouts[1]
+            slide = prs.slides.add_slide(bullet_slide_layout)
+
+            # Apply template structure
+            if use_template_styling:
+                slide = template_analyzer.apply_template_structure(slide, 'title_and_content')
+
+            title = slide.shapes.title
+            body = slide.placeholders[1]
+
+            title.text = "Key Insights & Recommendations"
+            title_paragraph = title.text_frame.paragraphs[0]
+            title_paragraph.font.color.rgb = primary_color
+            title_paragraph.font.name = primary_font
+
+            tf = body.text_frame
+
+            # Main insights
+            if aggregated_insights['executive_summary']['main_insights']:
+                tf.text = "Strategic Insights from Analysis"
+
+                for insight in aggregated_insights['executive_summary']['main_insights'][:5]:
                     p = tf.add_paragraph()
-                    p.text = f"• Data Quality: {quality_metrics['quality_level']}"
+                    p.text = f"• {insight['content'][:120]}{'...' if len(insight['content']) > 120 else ''}"
                     p.level = 1
 
+            # Recommendations
+            if aggregated_insights['executive_summary']['recommendations']:
+                p = tf.add_paragraph()
+                p.text = "Recommended Actions"
+                p.level = 0
+
+                for rec in aggregated_insights['executive_summary']['recommendations']:
                     p = tf.add_paragraph()
-                    p.text = f"• Completeness: {quality_metrics['completeness_pct']:.1f}%"
+                    p.text = f"• {rec}"
                     p.level = 1
+
+        # Cross-Source Analysis slide
+        if aggregated_insights and aggregated_insights['cross_source_insights']['common_themes']:
+            bullet_slide_layout = prs.slide_layouts[1]
+            slide = prs.slides.add_slide(bullet_slide_layout)
+
+            # Apply template structure
+            if use_template_styling:
+                slide = template_analyzer.apply_template_structure(slide, 'title_and_content')
+
+            title = slide.shapes.title
+            body = slide.placeholders[1]
+
+            title.text = "Cross-Source Analysis"
+            title_paragraph = title.text_frame.paragraphs[0]
+            title_paragraph.font.color.rgb = primary_color
+            title_paragraph.font.name = primary_font
+
+            tf = body.text_frame
+            tf.text = "Common Themes Across Data Sources"
+
+            for theme in aggregated_insights['cross_source_insights']['common_themes']:
+                p = tf.add_paragraph()
+                p.text = f"• {theme}"
+                p.level = 1
+
+            # Add data source overview
+            if aggregated_insights['data_overview']:
+                p = tf.add_paragraph()
+                p.text = "Data Source Breakdown"
+                p.level = 0
+
+                if aggregated_insights['data_overview']['csv_excel_summary']:
+                    csv_summary = aggregated_insights['data_overview']['csv_excel_summary']
+                    p = tf.add_paragraph()
+                    p.text = f"• Structured Data: {csv_summary['shape'][0]:,} records, {csv_summary['shape'][1]} columns"
+                    p.level = 1
+
+                if aggregated_insights['data_overview']['document_summary']:
+                    doc_summary = aggregated_insights['data_overview']['document_summary']
+                    p = tf.add_paragraph()
+                    p.text = f"• Documents: {doc_summary['document_count']} files, {doc_summary['total_words']:,} words"
+                    p.level = 1
+
+                if aggregated_insights['data_overview']['presentation_summary']:
+                    pres_summary = aggregated_insights['data_overview']['presentation_summary']
+                    p = tf.add_paragraph()
+                    p.text = f"• Presentations: {pres_summary['presentation_count']} files, {pres_summary['total_slides']} slides"
+                    p.level = 1
+
+        # Configure additional slide flags
+        include_quality_assessment = bool(df is not None)
 
         # Data Quality slide
         if include_quality_assessment and df is not None:
