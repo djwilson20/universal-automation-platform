@@ -14,6 +14,8 @@ from pptx.dml.color import RGBColor
 from pptx.enum.text import PP_ALIGN
 from pptx.enum.shapes import MSO_SHAPE
 from pptx.enum.dml import MSO_THEME_COLOR
+from docx import Document
+import re
 
 warnings.filterwarnings('ignore')
 
@@ -495,7 +497,333 @@ class SAPDataProcessor:
     """SAP-style data processing engine"""
 
     def __init__(self):
-        self.supported_formats = ['csv', 'xlsx', 'xls', 'pptx']
+        self.supported_formats = ['csv', 'xlsx', 'xls', 'pptx', 'docx']
+
+    def extract_word_document_data(self, docx_file):
+        """Extract comprehensive content from Word documents including text, tables, and metadata"""
+        try:
+            doc = Document(BytesIO(docx_file))
+            extracted_data = {
+                'document_structure': {
+                    'paragraphs': [],
+                    'tables': [],
+                    'headers': [],
+                    'footers': [],
+                    'metadata': {}
+                },
+                'processed_content': {
+                    'text_content': [],
+                    'data_tables': [],
+                    'key_points': [],
+                    'decisions': [],
+                    'metrics': []
+                },
+                'document_stats': {
+                    'total_paragraphs': 0,
+                    'total_tables': 0,
+                    'total_words': 0,
+                    'bullet_points': 0,
+                    'numbered_lists': 0
+                }
+            }
+
+            # Extract document metadata
+            try:
+                core_props = doc.core_properties
+                extracted_data['document_structure']['metadata'] = {
+                    'title': core_props.title or '',
+                    'author': core_props.author or '',
+                    'subject': core_props.subject or '',
+                    'created': core_props.created.strftime('%Y-%m-%d %H:%M:%S') if core_props.created else '',
+                    'modified': core_props.modified.strftime('%Y-%m-%d %H:%M:%S') if core_props.modified else '',
+                    'last_modified_by': core_props.last_modified_by or ''
+                }
+            except:
+                extracted_data['document_structure']['metadata'] = {}
+
+            # Extract headers and footers
+            for section in doc.sections:
+                # Headers
+                if section.header:
+                    for paragraph in section.header.paragraphs:
+                        if paragraph.text.strip():
+                            extracted_data['document_structure']['headers'].append({
+                                'text': paragraph.text.strip(),
+                                'style': paragraph.style.name if paragraph.style else 'Normal'
+                            })
+
+                # Footers
+                if section.footer:
+                    for paragraph in section.footer.paragraphs:
+                        if paragraph.text.strip():
+                            extracted_data['document_structure']['footers'].append({
+                                'text': paragraph.text.strip(),
+                                'style': paragraph.style.name if paragraph.style else 'Normal'
+                            })
+
+            # Extract paragraphs with detailed analysis
+            word_count = 0
+            bullet_count = 0
+            numbered_count = 0
+
+            for para_idx, paragraph in enumerate(doc.paragraphs):
+                if not paragraph.text.strip():
+                    continue
+
+                para_text = self._clean_paragraph_text(paragraph.text)
+                word_count += len(para_text.split())
+
+                para_data = {
+                    'index': para_idx,
+                    'text': para_text,
+                    'style': paragraph.style.name if paragraph.style else 'Normal',
+                    'level': getattr(paragraph, 'level', 0),
+                    'is_bullet': self._is_bullet_point(paragraph),
+                    'is_numbered': self._is_numbered_list(paragraph),
+                    'is_heading': self._is_heading(paragraph),
+                    'formatting': self._extract_paragraph_formatting(paragraph),
+                    'content_type': self._classify_paragraph_content(para_text)
+                }
+
+                # Count bullet points and numbered lists
+                if para_data['is_bullet']:
+                    bullet_count += 1
+                if para_data['is_numbered']:
+                    numbered_count += 1
+
+                extracted_data['document_structure']['paragraphs'].append(para_data)
+
+                # Classify content for processing
+                if para_data['content_type'] in ['key_point', 'decision']:
+                    extracted_data['processed_content'][para_data['content_type'] + 's'].append(para_text)
+                elif para_data['content_type'] == 'metric':
+                    extracted_data['processed_content']['metrics'].append(para_text)
+                else:
+                    extracted_data['processed_content']['text_content'].append(para_text)
+
+            # Extract tables with sophisticated parsing
+            for table_idx, table in enumerate(doc.tables):
+                table_data = []
+                has_header = False
+
+                for row_idx, row in enumerate(table.rows):
+                    row_data = []
+                    for cell_idx, cell in enumerate(row.cells):
+                        cell_text = self._clean_cell_text(cell.text)
+                        row_data.append(cell_text)
+
+                    table_data.append(row_data)
+
+                # Detect if first row is header
+                if table_data and len(table_data) > 1:
+                    first_row = table_data[0]
+                    if self._likely_table_header(first_row):
+                        has_header = True
+
+                # Process table into DataFrame if it contains data
+                df_table = None
+                if table_data and len(table_data) > (1 if has_header else 0):
+                    try:
+                        if has_header and len(table_data) > 1:
+                            df_table = pd.DataFrame(table_data[1:], columns=table_data[0])
+                        else:
+                            df_table = pd.DataFrame(table_data)
+
+                        # Clean and process DataFrame
+                        df_table = self._clean_dataframe(df_table)
+
+                        # Only add if it has meaningful data
+                        if not df_table.empty and df_table.shape[1] > 1:
+                            extracted_data['processed_content']['data_tables'].append({
+                                'table_index': table_idx,
+                                'dataframe': df_table,
+                                'has_header': has_header,
+                                'shape': df_table.shape,
+                                'numeric_columns': len(df_table.select_dtypes(include=[np.number]).columns)
+                            })
+
+                    except Exception as e:
+                        # If DataFrame creation fails, store as raw table
+                        pass
+
+                table_info = {
+                    'table_index': table_idx,
+                    'raw_data': table_data,
+                    'rows': len(table_data),
+                    'columns': len(table_data[0]) if table_data else 0,
+                    'has_header': has_header,
+                    'has_dataframe': df_table is not None and not df_table.empty
+                }
+
+                extracted_data['document_structure']['tables'].append(table_info)
+
+            # Update document statistics
+            extracted_data['document_stats'].update({
+                'total_paragraphs': len(extracted_data['document_structure']['paragraphs']),
+                'total_tables': len(extracted_data['document_structure']['tables']),
+                'total_words': word_count,
+                'bullet_points': bullet_count,
+                'numbered_lists': numbered_count,
+                'data_tables_found': len(extracted_data['processed_content']['data_tables']),
+                'key_points_found': len(extracted_data['processed_content']['key_points']),
+                'decisions_found': len(extracted_data['processed_content']['decisions']),
+                'metrics_found': len(extracted_data['processed_content']['metrics'])
+            })
+
+            return extracted_data
+
+        except Exception as e:
+            st.error(f"Error extracting Word document data: {str(e)}")
+            return None
+
+    def _clean_paragraph_text(self, text):
+        """Clean paragraph text by removing track changes and comments"""
+        # Remove common track changes markers
+        text = re.sub(r'\[.*?\]', '', text)  # Remove tracked deletions
+        text = re.sub(r'\{.*?\}', '', text)  # Remove comments
+        text = re.sub(r'<.*?>', '', text)    # Remove any XML-like tags
+
+        # Clean up whitespace
+        text = ' '.join(text.split())
+        return text.strip()
+
+    def _clean_cell_text(self, text):
+        """Clean table cell text"""
+        text = self._clean_paragraph_text(text)
+        # Remove table-specific artifacts
+        text = text.replace('\a', ' ')  # Remove vertical tab characters
+        return text.strip()
+
+    def _is_bullet_point(self, paragraph):
+        """Detect if paragraph is a bullet point"""
+        text = paragraph.text.strip()
+        if not text:
+            return False
+
+        # Check for common bullet markers
+        bullet_markers = ['•', '●', '○', '▪', '▫', '■', '□', '-', '*']
+        if any(text.startswith(marker) for marker in bullet_markers):
+            return True
+
+        # Check paragraph style
+        style_name = paragraph.style.name.lower() if paragraph.style else ''
+        if 'bullet' in style_name or 'list' in style_name:
+            return True
+
+        return False
+
+    def _is_numbered_list(self, paragraph):
+        """Detect if paragraph is a numbered list item"""
+        text = paragraph.text.strip()
+        if not text:
+            return False
+
+        # Check for numbered patterns
+        numbered_patterns = [
+            r'^\d+\.',     # 1. 2. 3.
+            r'^\d+\)',     # 1) 2) 3)
+            r'^\(\d+\)',   # (1) (2) (3)
+            r'^[a-z]\.',   # a. b. c.
+            r'^[A-Z]\.',   # A. B. C.
+            r'^[ivx]+\.',  # i. ii. iii.
+            r'^[IVX]+\.'   # I. II. III.
+        ]
+
+        for pattern in numbered_patterns:
+            if re.match(pattern, text):
+                return True
+
+        return False
+
+    def _is_heading(self, paragraph):
+        """Detect if paragraph is a heading"""
+        if paragraph.style:
+            style_name = paragraph.style.name.lower()
+            if 'heading' in style_name or 'title' in style_name:
+                return True
+        return False
+
+    def _extract_paragraph_formatting(self, paragraph):
+        """Extract formatting information from paragraph"""
+        formatting = {
+            'is_bold': False,
+            'is_italic': False,
+            'font_size': None,
+            'font_name': None
+        }
+
+        try:
+            if paragraph.runs:
+                first_run = paragraph.runs[0]
+                formatting['is_bold'] = first_run.bold or False
+                formatting['is_italic'] = first_run.italic or False
+                if first_run.font.size:
+                    formatting['font_size'] = first_run.font.size.pt
+                formatting['font_name'] = first_run.font.name
+        except:
+            pass
+
+        return formatting
+
+    def _classify_paragraph_content(self, text):
+        """Classify paragraph content type for better processing"""
+        text_lower = text.lower()
+
+        # Key point indicators
+        key_indicators = ['key point', 'important', 'note:', 'remember', 'action item', 'takeaway']
+        if any(indicator in text_lower for indicator in key_indicators):
+            return 'key_point'
+
+        # Decision indicators
+        decision_indicators = ['decision', 'agreed', 'decided', 'resolved', 'concluded', 'approved']
+        if any(indicator in text_lower for indicator in decision_indicators):
+            return 'decision'
+
+        # Metric indicators
+        metric_patterns = [
+            r'\d+%',           # Percentages
+            r'\$[\d,]+',       # Dollar amounts
+            r'\d+\.\d+',       # Decimal numbers
+            r'\d{1,3}(,\d{3})*' # Large numbers with commas
+        ]
+        if any(re.search(pattern, text) for pattern in metric_patterns):
+            return 'metric'
+
+        return 'general_text'
+
+    def _likely_table_header(self, row):
+        """Determine if a table row is likely a header"""
+        if not row:
+            return False
+
+        # Check if all cells have content
+        if all(cell.strip() for cell in row):
+            # Check for common header patterns
+            header_indicators = ['name', 'date', 'amount', 'type', 'status', 'description', 'value', 'total']
+            if any(any(indicator in cell.lower() for indicator in header_indicators) for cell in row):
+                return True
+
+        return False
+
+    def _clean_dataframe(self, df):
+        """Clean and optimize DataFrame from Word table"""
+        if df.empty:
+            return df
+
+        # Remove completely empty rows and columns
+        df = df.dropna(how='all').dropna(axis=1, how='all')
+
+        # Try to convert numeric columns
+        for col in df.columns:
+            try:
+                # Remove common non-numeric characters
+                df[col] = df[col].astype(str).str.replace('$', '').str.replace(',', '').str.replace('%', '')
+                # Try to convert to numeric
+                df[col] = pd.to_numeric(df[col], errors='ignore')
+            except:
+                pass
+
+        return df
 
     def extract_powerpoint_data(self, pptx_file):
         """Extract text and table data from PowerPoint presentations"""
@@ -709,8 +1037,8 @@ col1, col2 = st.columns([3, 1])
 with col1:
     uploaded_file = st.file_uploader(
         "Upload your business data file",
-        type=['csv', 'xlsx', 'xls', 'pptx'],
-        help="Supported formats: CSV, Excel (.xlsx, .xls), PowerPoint (.pptx)"
+        type=['csv', 'xlsx', 'xls', 'pptx', 'docx'],
+        help="Supported formats: CSV, Excel (.xlsx, .xls), PowerPoint (.pptx), Word (.docx)"
     )
 
 with col2:
@@ -866,7 +1194,7 @@ def create_sap_visualization(df, chart_type="overview"):
 
     return None
 
-def generate_sap_powerpoint_report(df, insights, pptx_data=None):
+def generate_sap_powerpoint_report(df, insights, pptx_data=None, docx_data=None):
     """Generate professional SAP-style PowerPoint report"""
     try:
         # Check if template should be used
@@ -1043,6 +1371,174 @@ def generate_sap_powerpoint_report(df, insights, pptx_data=None):
                         p.text = f"  - {text[:100]}{'...' if len(text) > 100 else ''}"
                         p.level = 2
 
+        # Word Document Data slide (if Word document was uploaded)
+        if docx_data:
+            bullet_slide_layout = prs.slide_layouts[1]
+            slide = prs.slides.add_slide(bullet_slide_layout)
+
+            # Apply template structure
+            if use_template_styling:
+                slide = template_analyzer.apply_template_structure(slide, 'title_and_content')
+
+            title = slide.shapes.title
+            body = slide.placeholders[1]
+
+            title.text = "Word Document Analysis Results"
+            title_paragraph = title.text_frame.paragraphs[0]
+            title_paragraph.font.color.rgb = primary_color
+            title_paragraph.font.name = primary_font
+
+            tf = body.text_frame
+            doc_stats = docx_data['document_stats']
+            tf.text = f"Processed document with {doc_stats['total_words']:,} words"
+
+            p = tf.add_paragraph()
+            p.text = f"• Tables extracted: {doc_stats['total_tables']}"
+            p.level = 1
+
+            p = tf.add_paragraph()
+            p.text = f"• Data tables found: {doc_stats['data_tables_found']}"
+            p.level = 1
+
+            p = tf.add_paragraph()
+            p.text = f"• Key points identified: {doc_stats['key_points_found']}"
+            p.level = 1
+
+            p = tf.add_paragraph()
+            p.text = f"• Decisions captured: {doc_stats['decisions_found']}"
+            p.level = 1
+
+            p = tf.add_paragraph()
+            p.text = f"• Metrics found: {doc_stats['metrics_found']}"
+            p.level = 1
+
+            # Document metadata slide
+            if docx_data['document_structure']['metadata']:
+                bullet_slide_layout = prs.slide_layouts[1]
+                slide = prs.slides.add_slide(bullet_slide_layout)
+
+                # Apply template structure
+                if use_template_styling:
+                    slide = template_analyzer.apply_template_structure(slide, 'title_and_content')
+
+                title = slide.shapes.title
+                body = slide.placeholders[1]
+
+                title.text = "Document Information"
+                title_paragraph = title.text_frame.paragraphs[0]
+                title_paragraph.font.color.rgb = primary_color
+                title_paragraph.font.name = primary_font
+
+                tf = body.text_frame
+                metadata = docx_data['document_structure']['metadata']
+
+                tf.text = "Document Properties"
+
+                if metadata.get('title'):
+                    p = tf.add_paragraph()
+                    p.text = f"• Title: {metadata['title']}"
+                    p.level = 1
+
+                if metadata.get('author'):
+                    p = tf.add_paragraph()
+                    p.text = f"• Author: {metadata['author']}"
+                    p.level = 1
+
+                if metadata.get('created'):
+                    p = tf.add_paragraph()
+                    p.text = f"• Created: {metadata['created']}"
+                    p.level = 1
+
+                if metadata.get('subject'):
+                    p = tf.add_paragraph()
+                    p.text = f"• Subject: {metadata['subject']}"
+                    p.level = 1
+
+            # Key findings slide from Word document
+            if docx_data['processed_content']['key_points'] or docx_data['processed_content']['decisions']:
+                bullet_slide_layout = prs.slide_layouts[1]
+                slide = prs.slides.add_slide(bullet_slide_layout)
+
+                # Apply template structure
+                if use_template_styling:
+                    slide = template_analyzer.apply_template_structure(slide, 'title_and_content')
+
+                title = slide.shapes.title
+                body = slide.placeholders[1]
+
+                title.text = "Key Findings from Document"
+                title_paragraph = title.text_frame.paragraphs[0]
+                title_paragraph.font.color.rgb = primary_color
+                title_paragraph.font.name = primary_font
+
+                tf = body.text_frame
+                tf.text = "Important Points and Decisions"
+
+                # Add key points
+                key_points = docx_data['processed_content']['key_points'][:5]
+                if key_points:
+                    p = tf.add_paragraph()
+                    p.text = "Key Points:"
+                    p.level = 1
+
+                    for point in key_points:
+                        p = tf.add_paragraph()
+                        p.text = f"• {point[:150]}{'...' if len(point) > 150 else ''}"
+                        p.level = 2
+
+                # Add decisions
+                decisions = docx_data['processed_content']['decisions'][:3]
+                if decisions:
+                    p = tf.add_paragraph()
+                    p.text = "Decisions Made:"
+                    p.level = 1
+
+                    for decision in decisions:
+                        p = tf.add_paragraph()
+                        p.text = f"• {decision[:150]}{'...' if len(decision) > 150 else ''}"
+                        p.level = 2
+
+            # Data tables slide from Word document
+            if docx_data['processed_content']['data_tables']:
+                bullet_slide_layout = prs.slide_layouts[1]
+                slide = prs.slides.add_slide(bullet_slide_layout)
+
+                # Apply template structure
+                if use_template_styling:
+                    slide = template_analyzer.apply_template_structure(slide, 'title_and_content')
+
+                title = slide.shapes.title
+                body = slide.placeholders[1]
+
+                title.text = "Extracted Data Tables"
+                title_paragraph = title.text_frame.paragraphs[0]
+                title_paragraph.font.color.rgb = primary_color
+                title_paragraph.font.name = primary_font
+
+                tf = body.text_frame
+                data_tables = docx_data['processed_content']['data_tables']
+                tf.text = f"Found {len(data_tables)} analyzable data tables"
+
+                for i, table_info in enumerate(data_tables[:3]):  # Show first 3 tables
+                    p = tf.add_paragraph()
+                    shape = table_info['shape']
+                    numeric_cols = table_info['numeric_columns']
+                    p.text = f"• Table {i+1}: {shape[0]} rows × {shape[1]} columns ({numeric_cols} numeric)"
+                    p.level = 1
+
+                    # Show sample data from largest table
+                    if i == 0 and table_info['dataframe'] is not None:
+                        df_sample = table_info['dataframe']
+                        if not df_sample.empty:
+                            p = tf.add_paragraph()
+                            p.text = "Sample columns:"
+                            p.level = 1
+
+                            for col in list(df_sample.columns)[:4]:  # Show first 4 columns
+                                p = tf.add_paragraph()
+                                p.text = f"  - {col}"
+                                p.level = 2
+
         # Data Overview slide
         if df is not None and insights:
             bullet_slide_layout = prs.slide_layouts[1]
@@ -1123,7 +1619,225 @@ if uploaded_file:
     file_extension = uploaded_file.name.split('.')[-1].lower()
 
     with st.spinner("Processing file..."):
-        if file_extension == 'pptx':
+        if file_extension == 'docx':
+            # Process Word document file
+            st.markdown("### 📄 Word Document Analysis Results")
+
+            docx_data = sap_processor.extract_word_document_data(file_content)
+
+            if docx_data:
+                # Display Word document analysis
+                col1, col2, col3, col4 = st.columns(4)
+
+                with col1:
+                    st.markdown('<div class="sap-card">', unsafe_allow_html=True)
+                    st.markdown(f'<div class="sap-metric-value">{docx_data["document_stats"]["total_words"]:,}</div>', unsafe_allow_html=True)
+                    st.markdown('<div class="sap-metric-label">Total Words</div>', unsafe_allow_html=True)
+                    st.markdown('</div>', unsafe_allow_html=True)
+
+                with col2:
+                    st.markdown('<div class="sap-card">', unsafe_allow_html=True)
+                    st.markdown(f'<div class="sap-metric-value">{docx_data["document_stats"]["total_tables"]}</div>', unsafe_allow_html=True)
+                    st.markdown('<div class="sap-metric-label">Tables</div>', unsafe_allow_html=True)
+                    st.markdown('</div>', unsafe_allow_html=True)
+
+                with col3:
+                    st.markdown('<div class="sap-card">', unsafe_allow_html=True)
+                    st.markdown(f'<div class="sap-metric-value">{docx_data["document_stats"]["data_tables_found"]}</div>', unsafe_allow_html=True)
+                    st.markdown('<div class="sap-metric-label">Data Tables</div>', unsafe_allow_html=True)
+                    st.markdown('</div>', unsafe_allow_html=True)
+
+                with col4:
+                    st.markdown('<div class="sap-card">', unsafe_allow_html=True)
+                    st.markdown(f'<div class="sap-metric-value">{docx_data["document_stats"]["key_points_found"]}</div>', unsafe_allow_html=True)
+                    st.markdown('<div class="sap-metric-label">Key Points</div>', unsafe_allow_html=True)
+                    st.markdown('</div>', unsafe_allow_html=True)
+
+                # Additional stats row
+                col1, col2, col3, col4 = st.columns(4)
+
+                with col1:
+                    st.markdown('<div class="sap-card">', unsafe_allow_html=True)
+                    st.markdown(f'<div class="sap-metric-value">{docx_data["document_stats"]["bullet_points"]}</div>', unsafe_allow_html=True)
+                    st.markdown('<div class="sap-metric-label">Bullet Points</div>', unsafe_allow_html=True)
+                    st.markdown('</div>', unsafe_allow_html=True)
+
+                with col2:
+                    st.markdown('<div class="sap-card">', unsafe_allow_html=True)
+                    st.markdown(f'<div class="sap-metric-value">{docx_data["document_stats"]["decisions_found"]}</div>', unsafe_allow_html=True)
+                    st.markdown('<div class="sap-metric-label">Decisions</div>', unsafe_allow_html=True)
+                    st.markdown('</div>', unsafe_allow_html=True)
+
+                with col3:
+                    st.markdown('<div class="sap-card">', unsafe_allow_html=True)
+                    st.markdown(f'<div class="sap-metric-value">{docx_data["document_stats"]["metrics_found"]}</div>', unsafe_allow_html=True)
+                    st.markdown('<div class="sap-metric-label">Metrics</div>', unsafe_allow_html=True)
+                    st.markdown('</div>', unsafe_allow_html=True)
+
+                with col4:
+                    st.markdown('<div class="sap-card">', unsafe_allow_html=True)
+                    metadata = docx_data['document_structure']['metadata']
+                    author = metadata.get('author', 'Unknown')[:10] + ('...' if len(metadata.get('author', '')) > 10 else '')
+                    st.markdown(f'<div class="sap-metric-value">{author}</div>', unsafe_allow_html=True)
+                    st.markdown('<div class="sap-metric-label">Author</div>', unsafe_allow_html=True)
+                    st.markdown('</div>', unsafe_allow_html=True)
+
+                # Document metadata section
+                if docx_data['document_structure']['metadata']:
+                    st.markdown("#### 📋 Document Metadata")
+                    metadata = docx_data['document_structure']['metadata']
+
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        if metadata.get('title'):
+                            st.write(f"**Title:** {metadata['title']}")
+                        if metadata.get('author'):
+                            st.write(f"**Author:** {metadata['author']}")
+                        if metadata.get('subject'):
+                            st.write(f"**Subject:** {metadata['subject']}")
+
+                    with col2:
+                        if metadata.get('created'):
+                            st.write(f"**Created:** {metadata['created']}")
+                        if metadata.get('modified'):
+                            st.write(f"**Modified:** {metadata['modified']}")
+                        if metadata.get('last_modified_by'):
+                            st.write(f"**Last Modified By:** {metadata['last_modified_by']}")
+
+                # Show extracted data tables as DataFrames
+                if docx_data['processed_content']['data_tables']:
+                    st.markdown("#### 📊 Extracted Data Tables")
+
+                    for i, table_data in enumerate(docx_data['processed_content']['data_tables']):
+                        df_table = table_data['dataframe']
+                        st.markdown(f"**Table {i+1}** (Shape: {table_data['shape']}, Numeric columns: {table_data['numeric_columns']})")
+                        st.dataframe(df_table, use_container_width=True)
+
+                        # Add option to use this table for analysis
+                        if st.button(f"📈 Analyze Table {i+1}", key=f"analyze_table_{i}"):
+                            # Analyze the extracted DataFrame using existing pipeline
+                            quality_metrics = sap_processor.analyze_data_quality(df_table)
+                            insights = sap_processor.generate_basic_insights(df_table)
+
+                            if quality_metrics:
+                                st.markdown("##### Data Quality Assessment")
+                                col1, col2, col3 = st.columns(3)
+
+                                with col1:
+                                    st.metric("Completeness", f"{quality_metrics['completeness_pct']:.1f}%")
+                                with col2:
+                                    st.metric("Quality Level", quality_metrics['quality_level'])
+                                with col3:
+                                    st.metric("Numeric Columns", quality_metrics['numeric_columns'])
+
+                            if insights and 'summary_stats' in insights and not insights['summary_stats'].empty:
+                                st.markdown("##### Summary Statistics")
+                                st.dataframe(insights['summary_stats'], use_container_width=True)
+
+                # Show content analysis
+                st.markdown("#### 🔍 Content Analysis")
+
+                tab1, tab2, tab3, tab4 = st.tabs(["Key Points", "Decisions", "Metrics", "All Text"])
+
+                with tab1:
+                    if docx_data['processed_content']['key_points']:
+                        for i, point in enumerate(docx_data['processed_content']['key_points'][:10]):
+                            st.write(f"• {point}")
+                    else:
+                        st.info("No key points automatically identified.")
+
+                with tab2:
+                    if docx_data['processed_content']['decisions']:
+                        for i, decision in enumerate(docx_data['processed_content']['decisions'][:10]):
+                            st.write(f"• {decision}")
+                    else:
+                        st.info("No decisions automatically identified.")
+
+                with tab3:
+                    if docx_data['processed_content']['metrics']:
+                        for i, metric in enumerate(docx_data['processed_content']['metrics'][:10]):
+                            st.write(f"• {metric}")
+                    else:
+                        st.info("No metrics automatically identified.")
+
+                with tab4:
+                    if docx_data['processed_content']['text_content']:
+                        for i, text in enumerate(docx_data['processed_content']['text_content'][:20]):
+                            if text.strip():
+                                st.write(f"{i+1}. {text}")
+                    else:
+                        st.info("No text content found.")
+
+                # Headers and footers
+                if docx_data['document_structure']['headers'] or docx_data['document_structure']['footers']:
+                    with st.expander("📑 Headers & Footers", expanded=False):
+                        if docx_data['document_structure']['headers']:
+                            st.markdown("**Headers:**")
+                            for header in docx_data['document_structure']['headers']:
+                                st.write(f"- {header['text']} ({header['style']})")
+
+                        if docx_data['document_structure']['footers']:
+                            st.markdown("**Footers:**")
+                            for footer in docx_data['document_structure']['footers']:
+                                st.write(f"- {footer['text']} ({footer['style']})")
+
+                # Document structure details
+                with st.expander("🏗️ Document Structure Analysis", expanded=False):
+                    st.markdown("**Paragraph Analysis:**")
+
+                    # Group paragraphs by type
+                    headings = [p for p in docx_data['document_structure']['paragraphs'] if p['is_heading']]
+                    bullets = [p for p in docx_data['document_structure']['paragraphs'] if p['is_bullet']]
+                    numbered = [p for p in docx_data['document_structure']['paragraphs'] if p['is_numbered']]
+
+                    col1, col2, col3 = st.columns(3)
+                    with col1:
+                        st.metric("Headings", len(headings))
+                    with col2:
+                        st.metric("Bullet Lists", len(bullets))
+                    with col3:
+                        st.metric("Numbered Lists", len(numbered))
+
+                    if headings:
+                        st.markdown("**Document Headings:**")
+                        for heading in headings[:10]:
+                            st.write(f"- {heading['text']} ({heading['style']})")
+
+                # Generate report button for Word document
+                if st.button("📊 Generate SAP Analysis Report", type="primary", key="word_report"):
+                    with st.spinner("Generating comprehensive SAP report from Word document..."):
+                        # Create a combined dataset for reporting
+                        combined_data = None
+
+                        # If we have data tables, use the largest one as primary data
+                        if docx_data['processed_content']['data_tables']:
+                            largest_table = max(docx_data['processed_content']['data_tables'],
+                                              key=lambda x: x['dataframe'].shape[0] * x['dataframe'].shape[1])
+                            combined_data = largest_table['dataframe']
+
+                        # Generate insights from document content
+                        doc_insights = {
+                            'document_type': 'Word Document',
+                            'total_words': docx_data['document_stats']['total_words'],
+                            'key_findings': docx_data['processed_content']['key_points'][:5],
+                            'decisions_made': docx_data['processed_content']['decisions'][:5],
+                            'metrics_identified': docx_data['processed_content']['metrics'][:5],
+                            'data_tables_count': docx_data['document_stats']['data_tables_found'],
+                            'metadata': docx_data['document_structure']['metadata']
+                        }
+
+                        report_buffer = generate_sap_powerpoint_report(combined_data, doc_insights, None, docx_data)
+
+                        if report_buffer:
+                            st.success("✅ SAP report generated successfully!")
+                            st.download_button(
+                                label="📎 Download SAP Word Analysis Report",
+                                data=report_buffer.getvalue(),
+                                file_name=f"SAP_Word_Analysis_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pptx",
+                                mime="application/vnd.openxmlformats-officedocument.presentationml.presentation"
+                            )
+
+        elif file_extension == 'pptx':
             # Process PowerPoint file
             st.markdown("### =� PowerPoint Analysis Results")
 
