@@ -1502,6 +1502,30 @@ def aggregate_multi_source_data(df, insights, pptx_data=None, docx_data=None):
                 'total_tables': 0,
                 'total_decisions': 0,
                 'total_key_points': 0
+            },
+            # Add PowerPoint-compatible structures
+            'document_stats': {
+                'total_words': 0,
+                'total_tables': 0,
+                'total_paragraphs': 0,
+                'key_points_found': 0,
+                'decisions_found': 0,
+                'metrics_found': 0,
+                'data_tables_found': 0,
+                'bullet_points': 0,
+                'numbered_lists': 0
+            },
+            'processed_content': {
+                'key_points': [],
+                'decisions': [],
+                'metrics': [],
+                'text_content': [],
+                'data_tables': []
+            },
+            'document_structure': {
+                'metadata': {},
+                'headers': [],
+                'footers': []
             }
         }
 
@@ -1543,6 +1567,30 @@ def aggregate_multi_source_data(df, insights, pptx_data=None, docx_data=None):
                 aggregated['unified_metrics']['total_key_points'] = docx_data['combined_stats']['total_key_points']
                 aggregated['unified_metrics']['total_tables'] += docx_data['combined_stats']['data_tables_found']
 
+                # Update document_stats for PowerPoint compatibility
+                aggregated['document_stats']['total_words'] = docx_data['combined_stats']['total_words']
+                aggregated['document_stats']['total_tables'] = docx_data['combined_stats']['data_tables_found']
+                aggregated['document_stats']['total_paragraphs'] = docx_data['combined_stats']['total_paragraphs']
+                aggregated['document_stats']['key_points_found'] = docx_data['combined_stats']['total_key_points']
+                aggregated['document_stats']['decisions_found'] = docx_data['combined_stats']['total_decisions']
+                aggregated['document_stats']['metrics_found'] = docx_data['combined_stats']['total_metrics']
+                aggregated['document_stats']['data_tables_found'] = docx_data['combined_stats']['data_tables_found']
+                aggregated['document_stats']['bullet_points'] = docx_data['combined_stats'].get('bullet_points', 0)
+                aggregated['document_stats']['numbered_lists'] = docx_data['combined_stats'].get('numbered_lists', 0)
+
+                # Update processed_content for PowerPoint compatibility
+                aggregated['processed_content']['key_points'] = [item['content'] for item in docx_data.get('all_key_points', [])]
+                aggregated['processed_content']['decisions'] = [item['content'] for item in docx_data.get('all_decisions', [])]
+                aggregated['processed_content']['metrics'] = [item['content'] for item in docx_data.get('all_metrics', [])]
+                aggregated['processed_content']['text_content'] = [item['content'] for item in docx_data.get('all_text_content', [])]
+                aggregated['processed_content']['data_tables'] = docx_data.get('combined_data_tables', [])
+
+                # Update document_structure for PowerPoint compatibility
+                if docx_data.get('authors'):
+                    aggregated['document_structure']['metadata']['authors'] = ', '.join(docx_data['authors'])
+                if docx_data.get('creation_dates'):
+                    aggregated['document_structure']['metadata']['creation_dates'] = docx_data['creation_dates']
+
                 aggregated['data_overview']['document_summary'] = {
                     'document_count': docx_data['combined_stats']['total_documents'],
                     'total_words': docx_data['combined_stats']['total_words'],
@@ -1574,6 +1622,17 @@ def aggregate_multi_source_data(df, insights, pptx_data=None, docx_data=None):
                 aggregated['unified_metrics']['total_decisions'] = doc_stats['decisions_found']
                 aggregated['unified_metrics']['total_key_points'] = doc_stats['key_points_found']
                 aggregated['unified_metrics']['total_tables'] += doc_stats['data_tables_found']
+
+                # Copy document_stats directly for single document
+                aggregated['document_stats'] = doc_stats.copy()
+
+                # Copy processed_content for single document
+                if 'processed_content' in docx_data:
+                    aggregated['processed_content'] = docx_data['processed_content'].copy()
+
+                # Copy document_structure for single document
+                if 'document_structure' in docx_data:
+                    aggregated['document_structure'] = docx_data['document_structure'].copy()
 
         # Process PowerPoint data
         if pptx_data:
@@ -1752,53 +1811,60 @@ def generate_sap_powerpoint_report(df, insights, pptx_data=None, docx_data=None)
             title_paragraph.font.name = primary_font
 
             tf = body.text_frame
-            exec_summary = aggregated_insights['executive_summary']
-            unified_metrics = aggregated_insights['unified_metrics']
+            exec_summary = aggregated_insights.get('executive_summary', {})
+            unified_metrics = aggregated_insights.get('unified_metrics', {})
 
-            tf.text = f"Unified Analysis of {exec_summary['total_data_sources']} Data Sources"
+            data_sources = exec_summary.get('total_data_sources', 0)
+            tf.text = f"Unified Analysis of {data_sources} Data Source{'s' if data_sources != 1 else ''}"
 
             # Key metrics overview
             p = tf.add_paragraph()
-            p.text = f"• Total Data Points Analyzed: {exec_summary['total_data_points']:,}"
+            p.text = f"• Total Data Points Analyzed: {exec_summary.get('total_data_points', 0):,}"
             p.level = 1
 
             p = tf.add_paragraph()
-            p.text = f"• Content Items Extracted: {exec_summary['total_content_items']}"
+            p.text = f"• Content Items Extracted: {exec_summary.get('total_content_items', 0)}"
             p.level = 1
 
             p = tf.add_paragraph()
-            p.text = f"• Overall Quality Score: {exec_summary['data_quality_score']:.1f}%"
+            p.text = f"• Overall Quality Score: {exec_summary.get('data_quality_score', 0):.1f}%"
             p.level = 1
 
             # Detailed breakdown
-            if unified_metrics['total_records'] > 0:
+            total_records = unified_metrics.get('total_records', 0)
+            if total_records > 0:
                 p = tf.add_paragraph()
-                p.text = f"• Structured Data Records: {unified_metrics['total_records']:,}"
+                p.text = f"• Structured Data Records: {total_records:,}"
                 p.level = 1
 
-            if unified_metrics['total_words'] > 0:
+            total_words = unified_metrics.get('total_words', 0)
+            if total_words > 0:
                 p = tf.add_paragraph()
-                p.text = f"• Document Content: {unified_metrics['total_words']:,} words"
+                p.text = f"• Document Content: {total_words:,} words"
                 p.level = 1
 
-            if unified_metrics['total_slides'] > 0:
+            total_slides = unified_metrics.get('total_slides', 0)
+            if total_slides > 0:
                 p = tf.add_paragraph()
-                p.text = f"• Presentation Content: {unified_metrics['total_slides']} slides"
+                p.text = f"• Presentation Content: {total_slides} slides"
                 p.level = 1
 
-            if unified_metrics['total_decisions'] > 0:
+            total_decisions = unified_metrics.get('total_decisions', 0)
+            if total_decisions > 0:
                 p = tf.add_paragraph()
-                p.text = f"• Business Decisions Identified: {unified_metrics['total_decisions']}"
+                p.text = f"• Business Decisions Identified: {total_decisions}"
                 p.level = 1
 
-            if unified_metrics['total_key_points'] > 0:
+            total_key_points = unified_metrics.get('total_key_points', 0)
+            if total_key_points > 0:
                 p = tf.add_paragraph()
-                p.text = f"• Key Insights Extracted: {unified_metrics['total_key_points']}"
+                p.text = f"• Key Insights Extracted: {total_key_points}"
                 p.level = 1
 
         # Key Insights and Recommendations slide
-        if aggregated_insights and (aggregated_insights['executive_summary']['main_insights'] or
-                                   aggregated_insights['executive_summary']['recommendations']):
+        if (aggregated_insights and
+            (aggregated_insights.get('executive_summary', {}).get('main_insights', []) or
+             aggregated_insights.get('executive_summary', {}).get('recommendations', []))):
             bullet_slide_layout = prs.slide_layouts[1]
             slide = prs.slides.add_slide(bullet_slide_layout)
 
@@ -1837,7 +1903,8 @@ def generate_sap_powerpoint_report(df, insights, pptx_data=None, docx_data=None)
                     p.level = 1
 
         # Cross-Source Analysis slide
-        if aggregated_insights and aggregated_insights['cross_source_insights']['common_themes']:
+        if (aggregated_insights and
+            aggregated_insights.get('cross_source_insights', {}).get('common_themes', [])):
             bullet_slide_layout = prs.slide_layouts[1]
             slide = prs.slides.add_slide(bullet_slide_layout)
 
@@ -1981,27 +2048,33 @@ def generate_sap_powerpoint_report(df, insights, pptx_data=None, docx_data=None)
             title_paragraph.font.name = primary_font
 
             tf = body.text_frame
-            doc_stats = docx_data['document_stats']
-            tf.text = f"Processed document with {doc_stats['total_words']:,} words"
+            # Use aggregated insights if available, otherwise fall back to docx_data
+            if aggregated_insights and 'document_stats' in aggregated_insights:
+                doc_stats = aggregated_insights['document_stats']
+            else:
+                doc_stats = docx_data.get('document_stats', {})
+
+            total_words = doc_stats.get('total_words', 0)
+            tf.text = f"Processed document with {total_words:,} words"
 
             p = tf.add_paragraph()
-            p.text = f"• Tables extracted: {doc_stats['total_tables']}"
+            p.text = f"• Tables extracted: {doc_stats.get('total_tables', 0)}"
             p.level = 1
 
             p = tf.add_paragraph()
-            p.text = f"• Data tables found: {doc_stats['data_tables_found']}"
+            p.text = f"• Data tables found: {doc_stats.get('data_tables_found', 0)}"
             p.level = 1
 
             p = tf.add_paragraph()
-            p.text = f"• Key points identified: {doc_stats['key_points_found']}"
+            p.text = f"• Key points identified: {doc_stats.get('key_points_found', 0)}"
             p.level = 1
 
             p = tf.add_paragraph()
-            p.text = f"• Decisions captured: {doc_stats['decisions_found']}"
+            p.text = f"• Decisions captured: {doc_stats.get('decisions_found', 0)}"
             p.level = 1
 
             p = tf.add_paragraph()
-            p.text = f"• Metrics found: {doc_stats['metrics_found']}"
+            p.text = f"• Metrics found: {doc_stats.get('metrics_found', 0)}"
             p.level = 1
 
             # Document metadata slide
