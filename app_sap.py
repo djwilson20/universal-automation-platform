@@ -825,6 +825,276 @@ class SAPDataProcessor:
 
         return df
 
+    def process_multiple_files(self, uploaded_files):
+        """Process multiple files and organize by type"""
+        try:
+            processed_data = {
+                'csv_excel_files': [],
+                'word_documents': [],
+                'powerpoint_files': [],
+                'combined_dataframes': [],
+                'all_word_data': [],
+                'all_pptx_data': [],
+                'file_summary': {
+                    'total_files': len(uploaded_files),
+                    'csv_excel_count': 0,
+                    'word_count': 0,
+                    'pptx_count': 0,
+                    'processing_errors': []
+                }
+            }
+
+            for file_obj in uploaded_files:
+                file_content = file_obj.getvalue()
+                file_name = file_obj.name
+                file_extension = file_name.split('.')[-1].lower()
+
+                try:
+                    if file_extension in ['csv', 'xlsx', 'xls']:
+                        # Process CSV/Excel files
+                        df = self.process_csv_excel(file_content, file_name)
+                        if df is not None:
+                            processed_data['csv_excel_files'].append({
+                                'filename': file_name,
+                                'dataframe': df,
+                                'shape': df.shape,
+                                'columns': list(df.columns)
+                            })
+                            processed_data['combined_dataframes'].append(df)
+                            processed_data['file_summary']['csv_excel_count'] += 1
+
+                    elif file_extension == 'docx':
+                        # Process Word documents
+                        docx_data = self.extract_word_document_data(file_content)
+                        if docx_data:
+                            docx_data['filename'] = file_name
+                            processed_data['word_documents'].append(docx_data)
+                            processed_data['all_word_data'].append(docx_data)
+                            processed_data['file_summary']['word_count'] += 1
+
+                    elif file_extension == 'pptx':
+                        # Process PowerPoint files
+                        pptx_data = self.extract_powerpoint_data(file_content)
+                        if pptx_data:
+                            pptx_data['filename'] = file_name
+                            processed_data['powerpoint_files'].append(pptx_data)
+                            processed_data['all_pptx_data'].append(pptx_data)
+                            processed_data['file_summary']['pptx_count'] += 1
+
+                except Exception as e:
+                    processed_data['file_summary']['processing_errors'].append({
+                        'filename': file_name,
+                        'error': str(e)
+                    })
+
+            return processed_data
+
+        except Exception as e:
+            st.error(f"Error processing multiple files: {str(e)}")
+            return None
+
+    def combine_csv_excel_data(self, dataframes_list):
+        """Combine multiple CSV/Excel DataFrames intelligently"""
+        if not dataframes_list:
+            return None
+
+        try:
+            # If only one DataFrame, return it
+            if len(dataframes_list) == 1:
+                return dataframes_list[0]
+
+            # Try to concatenate if columns are similar
+            combined_df = None
+
+            # Check if all DataFrames have similar column structures
+            first_cols = set(dataframes_list[0].columns)
+            similar_structure = all(
+                len(set(df.columns).intersection(first_cols)) / len(set(df.columns).union(first_cols)) > 0.5
+                for df in dataframes_list[1:]
+            )
+
+            if similar_structure:
+                # Concatenate DataFrames with similar structures
+                combined_df = pd.concat(dataframes_list, ignore_index=True, sort=False)
+                combined_df = combined_df.loc[:, ~combined_df.columns.duplicated()]
+            else:
+                # Merge DataFrames with different structures side by side
+                combined_df = dataframes_list[0].copy()
+                for i, df in enumerate(dataframes_list[1:], 1):
+                    # Add suffix to avoid column name conflicts
+                    df_suffixed = df.add_suffix(f'_file{i+1}')
+                    # Concatenate horizontally
+                    combined_df = pd.concat([combined_df, df_suffixed], axis=1)
+
+            return combined_df
+
+        except Exception as e:
+            st.error(f"Error combining CSV/Excel data: {str(e)}")
+            return dataframes_list[0] if dataframes_list else None
+
+    def merge_word_document_insights(self, word_data_list):
+        """Merge insights from multiple Word documents"""
+        if not word_data_list:
+            return None
+
+        try:
+            merged_insights = {
+                'combined_stats': {
+                    'total_documents': len(word_data_list),
+                    'total_words': 0,
+                    'total_tables': 0,
+                    'total_paragraphs': 0,
+                    'total_key_points': 0,
+                    'total_decisions': 0,
+                    'total_metrics': 0,
+                    'data_tables_found': 0
+                },
+                'all_key_points': [],
+                'all_decisions': [],
+                'all_metrics': [],
+                'all_text_content': [],
+                'combined_data_tables': [],
+                'document_summaries': [],
+                'authors': set(),
+                'creation_dates': []
+            }
+
+            for doc_data in word_data_list:
+                filename = doc_data.get('filename', 'Unknown')
+                doc_stats = doc_data['document_stats']
+
+                # Aggregate statistics
+                merged_insights['combined_stats']['total_words'] += doc_stats['total_words']
+                merged_insights['combined_stats']['total_tables'] += doc_stats['total_tables']
+                merged_insights['combined_stats']['total_paragraphs'] += doc_stats['total_paragraphs']
+                merged_insights['combined_stats']['total_key_points'] += doc_stats['key_points_found']
+                merged_insights['combined_stats']['total_decisions'] += doc_stats['decisions_found']
+                merged_insights['combined_stats']['total_metrics'] += doc_stats['metrics_found']
+                merged_insights['combined_stats']['data_tables_found'] += doc_stats['data_tables_found']
+
+                # Collect content with source information
+                processed_content = doc_data['processed_content']
+
+                for point in processed_content['key_points']:
+                    merged_insights['all_key_points'].append({
+                        'content': point,
+                        'source': filename
+                    })
+
+                for decision in processed_content['decisions']:
+                    merged_insights['all_decisions'].append({
+                        'content': decision,
+                        'source': filename
+                    })
+
+                for metric in processed_content['metrics']:
+                    merged_insights['all_metrics'].append({
+                        'content': metric,
+                        'source': filename
+                    })
+
+                for text in processed_content['text_content'][:10]:  # Limit text content
+                    merged_insights['all_text_content'].append({
+                        'content': text,
+                        'source': filename
+                    })
+
+                # Collect data tables
+                for table_data in processed_content['data_tables']:
+                    table_info = table_data.copy()
+                    table_info['source'] = filename
+                    merged_insights['combined_data_tables'].append(table_info)
+
+                # Document metadata
+                metadata = doc_data['document_structure']['metadata']
+                if metadata.get('author'):
+                    merged_insights['authors'].add(metadata['author'])
+                if metadata.get('created'):
+                    merged_insights['creation_dates'].append(metadata['created'])
+
+                # Create document summary
+                merged_insights['document_summaries'].append({
+                    'filename': filename,
+                    'words': doc_stats['total_words'],
+                    'tables': doc_stats['total_tables'],
+                    'key_points': doc_stats['key_points_found'],
+                    'decisions': doc_stats['decisions_found'],
+                    'author': metadata.get('author', 'Unknown')
+                })
+
+            # Convert sets to lists for JSON serialization
+            merged_insights['authors'] = list(merged_insights['authors'])
+
+            return merged_insights
+
+        except Exception as e:
+            st.error(f"Error merging Word document insights: {str(e)}")
+            return None
+
+    def merge_powerpoint_data(self, pptx_data_list):
+        """Merge data from multiple PowerPoint presentations"""
+        if not pptx_data_list:
+            return None
+
+        try:
+            merged_pptx = {
+                'combined_stats': {
+                    'total_presentations': len(pptx_data_list),
+                    'total_slides': 0,
+                    'total_text_blocks': 0,
+                    'total_tables': 0,
+                    'total_words': 0
+                },
+                'all_slides': [],
+                'all_text_content': [],
+                'all_tables': [],
+                'presentation_summaries': []
+            }
+
+            for pptx_data in pptx_data_list:
+                filename = pptx_data.get('filename', 'Unknown')
+
+                # Aggregate statistics
+                merged_pptx['combined_stats']['total_slides'] += pptx_data['slide_count']
+                merged_pptx['combined_stats']['total_text_blocks'] += len(pptx_data['text_content'])
+                merged_pptx['combined_stats']['total_tables'] += len(pptx_data['tables'])
+
+                # Calculate total words
+                total_words = sum(len(text.split()) for text in pptx_data['text_content'])
+                merged_pptx['combined_stats']['total_words'] += total_words
+
+                # Collect content with source information
+                for slide in pptx_data['slides']:
+                    slide_copy = slide.copy()
+                    slide_copy['source'] = filename
+                    merged_pptx['all_slides'].append(slide_copy)
+
+                for text in pptx_data['text_content']:
+                    merged_pptx['all_text_content'].append({
+                        'content': text,
+                        'source': filename
+                    })
+
+                for table in pptx_data['tables']:
+                    table_copy = table.copy()
+                    table_copy['source'] = filename
+                    merged_pptx['all_tables'].append(table_copy)
+
+                # Create presentation summary
+                merged_pptx['presentation_summaries'].append({
+                    'filename': filename,
+                    'slides': pptx_data['slide_count'],
+                    'text_blocks': len(pptx_data['text_content']),
+                    'tables': len(pptx_data['tables']),
+                    'words': total_words
+                })
+
+            return merged_pptx
+
+        except Exception as e:
+            st.error(f"Error merging PowerPoint data: {str(e)}")
+            return None
+
     def extract_powerpoint_data(self, pptx_file):
         """Extract text and table data from PowerPoint presentations"""
         try:
@@ -1035,25 +1305,32 @@ st.markdown("### =� File Upload & Processing")
 col1, col2 = st.columns([3, 1])
 
 with col1:
-    uploaded_file = st.file_uploader(
-        "Upload your business data file",
+    uploaded_files = st.file_uploader(
+        "Upload your business data files",
         type=['csv', 'xlsx', 'xls', 'pptx', 'docx'],
-        help="Supported formats: CSV, Excel (.xlsx, .xls), PowerPoint (.pptx), Word (.docx)"
+        help="Supported formats: CSV, Excel (.xlsx, .xls), PowerPoint (.pptx), Word (.docx). Upload multiple files for combined analysis.",
+        accept_multiple_files=True
     )
 
 with col2:
-    if uploaded_file:
-        file_size = len(uploaded_file.getvalue()) / (1024 * 1024)  # MB
-        file_extension = uploaded_file.name.split('.')[-1].upper()
+    if uploaded_files:
+        total_size = sum(len(f.getvalue()) for f in uploaded_files) / (1024 * 1024)  # MB
+        file_types = list(set(f.name.split('.')[-1].upper() for f in uploaded_files))
 
         st.markdown('<div class="sap-card">', unsafe_allow_html=True)
-        st.markdown(f'<div class="sap-metric-value">{file_size:.1f} MB</div>', unsafe_allow_html=True)
-        st.markdown(f'<div class="sap-metric-label">File Size</div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="sap-metric-value">{len(uploaded_files)}</div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="sap-metric-label">Files</div>', unsafe_allow_html=True)
         st.markdown('</div>', unsafe_allow_html=True)
 
         st.markdown('<div class="sap-card">', unsafe_allow_html=True)
-        st.markdown(f'<div class="sap-metric-value">{file_extension}</div>', unsafe_allow_html=True)
-        st.markdown(f'<div class="sap-metric-label">Format</div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="sap-metric-value">{total_size:.1f} MB</div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="sap-metric-label">Total Size</div>', unsafe_allow_html=True)
+        st.markdown('</div>', unsafe_allow_html=True)
+
+        st.markdown('<div class="sap-card">', unsafe_allow_html=True)
+        formats_text = ", ".join(file_types) if len(file_types) <= 2 else f"{len(file_types)} types"
+        st.markdown(f'<div class="sap-metric-value">{formats_text}</div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="sap-metric-label">Formats</div>', unsafe_allow_html=True)
         st.markdown('</div>', unsafe_allow_html=True)
 
 # Template preview section
@@ -1614,387 +1891,285 @@ def generate_sap_powerpoint_report(df, insights, pptx_data=None, docx_data=None)
         return None
 
 # Main processing logic
-if uploaded_file:
-    file_content = uploaded_file.getvalue()
-    file_extension = uploaded_file.name.split('.')[-1].lower()
+if uploaded_files:
+    with st.spinner("Processing files..."):
+        # Process multiple files
+        processed_data = sap_processor.process_multiple_files(uploaded_files)
 
-    with st.spinner("Processing file..."):
-        if file_extension == 'docx':
-            # Process Word document file
-            st.markdown("### 📄 Word Document Analysis Results")
+        if processed_data:
+            # Display file processing summary
+            st.markdown("### 📊 Multi-File Analysis Dashboard")
 
-            docx_data = sap_processor.extract_word_document_data(file_content)
+            # File summary metrics
+            file_summary = processed_data['file_summary']
+            col1, col2, col3, col4 = st.columns(4)
 
-            if docx_data:
-                # Display Word document analysis
-                col1, col2, col3, col4 = st.columns(4)
+            with col1:
+                st.markdown('<div class="sap-card">', unsafe_allow_html=True)
+                st.markdown(f'<div class="sap-metric-value">{file_summary["total_files"]}</div>', unsafe_allow_html=True)
+                st.markdown('<div class="sap-metric-label">Total Files</div>', unsafe_allow_html=True)
+                st.markdown('</div>', unsafe_allow_html=True)
 
-                with col1:
-                    st.markdown('<div class="sap-card">', unsafe_allow_html=True)
-                    st.markdown(f'<div class="sap-metric-value">{docx_data["document_stats"]["total_words"]:,}</div>', unsafe_allow_html=True)
-                    st.markdown('<div class="sap-metric-label">Total Words</div>', unsafe_allow_html=True)
-                    st.markdown('</div>', unsafe_allow_html=True)
+            with col2:
+                st.markdown('<div class="sap-card">', unsafe_allow_html=True)
+                st.markdown(f'<div class="sap-metric-value">{file_summary["csv_excel_count"]}</div>', unsafe_allow_html=True)
+                st.markdown('<div class="sap-metric-label">Data Files</div>', unsafe_allow_html=True)
+                st.markdown('</div>', unsafe_allow_html=True)
 
-                with col2:
-                    st.markdown('<div class="sap-card">', unsafe_allow_html=True)
-                    st.markdown(f'<div class="sap-metric-value">{docx_data["document_stats"]["total_tables"]}</div>', unsafe_allow_html=True)
-                    st.markdown('<div class="sap-metric-label">Tables</div>', unsafe_allow_html=True)
-                    st.markdown('</div>', unsafe_allow_html=True)
+            with col3:
+                st.markdown('<div class="sap-card">', unsafe_allow_html=True)
+                st.markdown(f'<div class="sap-metric-value">{file_summary["word_count"]}</div>', unsafe_allow_html=True)
+                st.markdown('<div class="sap-metric-label">Word Docs</div>', unsafe_allow_html=True)
+                st.markdown('</div>', unsafe_allow_html=True)
 
-                with col3:
-                    st.markdown('<div class="sap-card">', unsafe_allow_html=True)
-                    st.markdown(f'<div class="sap-metric-value">{docx_data["document_stats"]["data_tables_found"]}</div>', unsafe_allow_html=True)
-                    st.markdown('<div class="sap-metric-label">Data Tables</div>', unsafe_allow_html=True)
-                    st.markdown('</div>', unsafe_allow_html=True)
+            with col4:
+                st.markdown('<div class="sap-card">', unsafe_allow_html=True)
+                st.markdown(f'<div class="sap-metric-value">{file_summary["pptx_count"]}</div>', unsafe_allow_html=True)
+                st.markdown('<div class="sap-metric-label">Presentations</div>', unsafe_allow_html=True)
+                st.markdown('</div>', unsafe_allow_html=True)
 
-                with col4:
-                    st.markdown('<div class="sap-card">', unsafe_allow_html=True)
-                    st.markdown(f'<div class="sap-metric-value">{docx_data["document_stats"]["key_points_found"]}</div>', unsafe_allow_html=True)
-                    st.markdown('<div class="sap-metric-label">Key Points</div>', unsafe_allow_html=True)
-                    st.markdown('</div>', unsafe_allow_html=True)
+            # Show processing errors if any
+            if file_summary['processing_errors']:
+                st.warning(f"⚠️ {len(file_summary['processing_errors'])} files had processing errors")
+                with st.expander("View processing errors", expanded=False):
+                    for error in file_summary['processing_errors']:
+                        st.error(f"**{error['filename']}**: {error['error']}")
 
-                # Additional stats row
-                col1, col2, col3, col4 = st.columns(4)
+            # Process and combine CSV/Excel data
+            combined_df = None
+            if processed_data['combined_dataframes']:
+                combined_df = sap_processor.combine_csv_excel_data(processed_data['combined_dataframes'])
 
-                with col1:
-                    st.markdown('<div class="sap-card">', unsafe_allow_html=True)
-                    st.markdown(f'<div class="sap-metric-value">{docx_data["document_stats"]["bullet_points"]}</div>', unsafe_allow_html=True)
-                    st.markdown('<div class="sap-metric-label">Bullet Points</div>', unsafe_allow_html=True)
-                    st.markdown('</div>', unsafe_allow_html=True)
+                if combined_df is not None:
+                    st.markdown("#### 📈 Combined Data Analysis")
 
-                with col2:
-                    st.markdown('<div class="sap-card">', unsafe_allow_html=True)
-                    st.markdown(f'<div class="sap-metric-value">{docx_data["document_stats"]["decisions_found"]}</div>', unsafe_allow_html=True)
-                    st.markdown('<div class="sap-metric-label">Decisions</div>', unsafe_allow_html=True)
-                    st.markdown('</div>', unsafe_allow_html=True)
+                    # Data processing options for combined data
+                    if handle_missing == "Remove rows":
+                        combined_df = combined_df.dropna()
+                    elif handle_missing == "Fill with mean":
+                        numeric_cols = combined_df.select_dtypes(include=[np.number]).columns
+                        combined_df[numeric_cols] = combined_df[numeric_cols].fillna(combined_df[numeric_cols].mean())
+                    elif handle_missing == "Fill with median":
+                        numeric_cols = combined_df.select_dtypes(include=[np.number]).columns
+                        combined_df[numeric_cols] = combined_df[numeric_cols].fillna(combined_df[numeric_cols].median())
 
-                with col3:
-                    st.markdown('<div class="sap-card">', unsafe_allow_html=True)
-                    st.markdown(f'<div class="sap-metric-value">{docx_data["document_stats"]["metrics_found"]}</div>', unsafe_allow_html=True)
-                    st.markdown('<div class="sap-metric-label">Metrics</div>', unsafe_allow_html=True)
-                    st.markdown('</div>', unsafe_allow_html=True)
+                    if remove_duplicates:
+                        combined_df = combined_df.drop_duplicates()
 
-                with col4:
-                    st.markdown('<div class="sap-card">', unsafe_allow_html=True)
-                    metadata = docx_data['document_structure']['metadata']
-                    author = metadata.get('author', 'Unknown')[:10] + ('...' if len(metadata.get('author', '')) > 10 else '')
-                    st.markdown(f'<div class="sap-metric-value">{author}</div>', unsafe_allow_html=True)
-                    st.markdown('<div class="sap-metric-label">Author</div>', unsafe_allow_html=True)
-                    st.markdown('</div>', unsafe_allow_html=True)
+                    # Analyze combined data
+                    quality_metrics = sap_processor.analyze_data_quality(combined_df)
+                    insights = sap_processor.generate_basic_insights(combined_df)
 
-                # Document metadata section
-                if docx_data['document_structure']['metadata']:
-                    st.markdown("#### 📋 Document Metadata")
-                    metadata = docx_data['document_structure']['metadata']
+                    # Display combined data quality metrics
+                    if quality_metrics:
+                        col1, col2, col3, col4 = st.columns(4)
 
-                    col1, col2 = st.columns(2)
-                    with col1:
-                        if metadata.get('title'):
-                            st.write(f"**Title:** {metadata['title']}")
-                        if metadata.get('author'):
-                            st.write(f"**Author:** {metadata['author']}")
-                        if metadata.get('subject'):
-                            st.write(f"**Subject:** {metadata['subject']}")
+                        with col1:
+                            st.markdown('<div class="sap-card">', unsafe_allow_html=True)
+                            st.markdown(f'<div class="sap-metric-value">{quality_metrics["total_records"]:,}</div>', unsafe_allow_html=True)
+                            st.markdown('<div class="sap-metric-label">Combined Records</div>', unsafe_allow_html=True)
+                            st.markdown('</div>', unsafe_allow_html=True)
 
-                    with col2:
-                        if metadata.get('created'):
-                            st.write(f"**Created:** {metadata['created']}")
-                        if metadata.get('modified'):
-                            st.write(f"**Modified:** {metadata['modified']}")
-                        if metadata.get('last_modified_by'):
-                            st.write(f"**Last Modified By:** {metadata['last_modified_by']}")
+                        with col2:
+                            st.markdown('<div class="sap-card">', unsafe_allow_html=True)
+                            st.markdown(f'<div class="sap-metric-value">{quality_metrics["completeness_pct"]:.1f}%</div>', unsafe_allow_html=True)
+                            st.markdown('<div class="sap-metric-label">Complete</div>', unsafe_allow_html=True)
+                            st.markdown('</div>', unsafe_allow_html=True)
 
-                # Show extracted data tables as DataFrames
-                if docx_data['processed_content']['data_tables']:
-                    st.markdown("#### 📊 Extracted Data Tables")
+                        with col3:
+                            st.markdown('<div class="sap-card">', unsafe_allow_html=True)
+                            st.markdown(f'<div class="sap-metric-value">{quality_metrics["numeric_columns"]}</div>', unsafe_allow_html=True)
+                            st.markdown('<div class="sap-metric-label">Numeric Cols</div>', unsafe_allow_html=True)
+                            st.markdown('</div>', unsafe_allow_html=True)
 
-                    for i, table_data in enumerate(docx_data['processed_content']['data_tables']):
-                        df_table = table_data['dataframe']
-                        st.markdown(f"**Table {i+1}** (Shape: {table_data['shape']}, Numeric columns: {table_data['numeric_columns']})")
-                        st.dataframe(df_table, use_container_width=True)
+                        with col4:
+                            quality_status = f'sap-status-{quality_metrics["quality_color"]}'
+                            st.markdown(f'<div class="{quality_status}">{quality_metrics["quality_level"]}</div>', unsafe_allow_html=True)
 
-                        # Add option to use this table for analysis
-                        if st.button(f"📈 Analyze Table {i+1}", key=f"analyze_table_{i}"):
-                            # Analyze the extracted DataFrame using existing pipeline
-                            quality_metrics = sap_processor.analyze_data_quality(df_table)
-                            insights = sap_processor.generate_basic_insights(df_table)
+                    # Combined data preview
+                    st.markdown("##### 📊 Combined Data Preview")
+                    st.dataframe(combined_df.head(10), use_container_width=True)
 
-                            if quality_metrics:
-                                st.markdown("##### Data Quality Assessment")
-                                col1, col2, col3 = st.columns(3)
+                    # Individual file details
+                    with st.expander("📋 Individual File Details", expanded=False):
+                        for file_data in processed_data['csv_excel_files']:
+                            st.markdown(f"**{file_data['filename']}** - Shape: {file_data['shape']}")
+                            st.write(f"Columns: {', '.join(file_data['columns'][:5])}{'...' if len(file_data['columns']) > 5 else ''}")
 
-                                with col1:
-                                    st.metric("Completeness", f"{quality_metrics['completeness_pct']:.1f}%")
-                                with col2:
-                                    st.metric("Quality Level", quality_metrics['quality_level'])
-                                with col3:
-                                    st.metric("Numeric Columns", quality_metrics['numeric_columns'])
+                    # Summary statistics for combined data
+                    if insights and 'summary_stats' in insights and not insights['summary_stats'].empty:
+                        st.markdown("##### 📊 Combined Summary Statistics")
+                        st.dataframe(insights['summary_stats'], use_container_width=True)
 
-                            if insights and 'summary_stats' in insights and not insights['summary_stats'].empty:
-                                st.markdown("##### Summary Statistics")
-                                st.dataframe(insights['summary_stats'], use_container_width=True)
+                    # Visualizations for combined data
+                    if include_charts:
+                        st.markdown("##### 📊 Combined Data Visualizations")
+                        fig = create_sap_visualization(combined_df)
+                        if fig:
+                            st.plotly_chart(fig, use_container_width=True)
 
-                # Show content analysis
-                st.markdown("#### 🔍 Content Analysis")
+            # Process and merge Word document insights
+            merged_word_insights = None
+            if processed_data['all_word_data']:
+                merged_word_insights = sap_processor.merge_word_document_insights(processed_data['all_word_data'])
 
-                tab1, tab2, tab3, tab4 = st.tabs(["Key Points", "Decisions", "Metrics", "All Text"])
+                if merged_word_insights:
+                    st.markdown("#### 📄 Combined Word Document Analysis")
 
-                with tab1:
-                    if docx_data['processed_content']['key_points']:
-                        for i, point in enumerate(docx_data['processed_content']['key_points'][:10]):
-                            st.write(f"• {point}")
-                    else:
-                        st.info("No key points automatically identified.")
-
-                with tab2:
-                    if docx_data['processed_content']['decisions']:
-                        for i, decision in enumerate(docx_data['processed_content']['decisions'][:10]):
-                            st.write(f"• {decision}")
-                    else:
-                        st.info("No decisions automatically identified.")
-
-                with tab3:
-                    if docx_data['processed_content']['metrics']:
-                        for i, metric in enumerate(docx_data['processed_content']['metrics'][:10]):
-                            st.write(f"• {metric}")
-                    else:
-                        st.info("No metrics automatically identified.")
-
-                with tab4:
-                    if docx_data['processed_content']['text_content']:
-                        for i, text in enumerate(docx_data['processed_content']['text_content'][:20]):
-                            if text.strip():
-                                st.write(f"{i+1}. {text}")
-                    else:
-                        st.info("No text content found.")
-
-                # Headers and footers
-                if docx_data['document_structure']['headers'] or docx_data['document_structure']['footers']:
-                    with st.expander("📑 Headers & Footers", expanded=False):
-                        if docx_data['document_structure']['headers']:
-                            st.markdown("**Headers:**")
-                            for header in docx_data['document_structure']['headers']:
-                                st.write(f"- {header['text']} ({header['style']})")
-
-                        if docx_data['document_structure']['footers']:
-                            st.markdown("**Footers:**")
-                            for footer in docx_data['document_structure']['footers']:
-                                st.write(f"- {footer['text']} ({footer['style']})")
-
-                # Document structure details
-                with st.expander("🏗️ Document Structure Analysis", expanded=False):
-                    st.markdown("**Paragraph Analysis:**")
-
-                    # Group paragraphs by type
-                    headings = [p for p in docx_data['document_structure']['paragraphs'] if p['is_heading']]
-                    bullets = [p for p in docx_data['document_structure']['paragraphs'] if p['is_bullet']]
-                    numbered = [p for p in docx_data['document_structure']['paragraphs'] if p['is_numbered']]
-
-                    col1, col2, col3 = st.columns(3)
-                    with col1:
-                        st.metric("Headings", len(headings))
-                    with col2:
-                        st.metric("Bullet Lists", len(bullets))
-                    with col3:
-                        st.metric("Numbered Lists", len(numbered))
-
-                    if headings:
-                        st.markdown("**Document Headings:**")
-                        for heading in headings[:10]:
-                            st.write(f"- {heading['text']} ({heading['style']})")
-
-                # Generate report button for Word document
-                if st.button("📊 Generate SAP Analysis Report", type="primary", key="word_report"):
-                    with st.spinner("Generating comprehensive SAP report from Word document..."):
-                        # Create a combined dataset for reporting
-                        combined_data = None
-
-                        # If we have data tables, use the largest one as primary data
-                        if docx_data['processed_content']['data_tables']:
-                            largest_table = max(docx_data['processed_content']['data_tables'],
-                                              key=lambda x: x['dataframe'].shape[0] * x['dataframe'].shape[1])
-                            combined_data = largest_table['dataframe']
-
-                        # Generate insights from document content
-                        doc_insights = {
-                            'document_type': 'Word Document',
-                            'total_words': docx_data['document_stats']['total_words'],
-                            'key_findings': docx_data['processed_content']['key_points'][:5],
-                            'decisions_made': docx_data['processed_content']['decisions'][:5],
-                            'metrics_identified': docx_data['processed_content']['metrics'][:5],
-                            'data_tables_count': docx_data['document_stats']['data_tables_found'],
-                            'metadata': docx_data['document_structure']['metadata']
-                        }
-
-                        report_buffer = generate_sap_powerpoint_report(combined_data, doc_insights, None, docx_data)
-
-                        if report_buffer:
-                            st.success("✅ SAP report generated successfully!")
-                            st.download_button(
-                                label="📎 Download SAP Word Analysis Report",
-                                data=report_buffer.getvalue(),
-                                file_name=f"SAP_Word_Analysis_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pptx",
-                                mime="application/vnd.openxmlformats-officedocument.presentationml.presentation"
-                            )
-
-        elif file_extension == 'pptx':
-            # Process PowerPoint file
-            st.markdown("### =� PowerPoint Analysis Results")
-
-            pptx_data = sap_processor.extract_powerpoint_data(file_content)
-
-            if pptx_data:
-                # Display PowerPoint analysis
-                col1, col2, col3, col4 = st.columns(4)
-
-                with col1:
-                    st.markdown('<div class="sap-card">', unsafe_allow_html=True)
-                    st.markdown(f'<div class="sap-metric-value">{pptx_data["slide_count"]}</div>', unsafe_allow_html=True)
-                    st.markdown('<div class="sap-metric-label">Slides</div>', unsafe_allow_html=True)
-                    st.markdown('</div>', unsafe_allow_html=True)
-
-                with col2:
-                    st.markdown('<div class="sap-card">', unsafe_allow_html=True)
-                    st.markdown(f'<div class="sap-metric-value">{len(pptx_data["text_content"])}</div>', unsafe_allow_html=True)
-                    st.markdown('<div class="sap-metric-label">Text Blocks</div>', unsafe_allow_html=True)
-                    st.markdown('</div>', unsafe_allow_html=True)
-
-                with col3:
-                    st.markdown('<div class="sap-card">', unsafe_allow_html=True)
-                    st.markdown(f'<div class="sap-metric-value">{len(pptx_data["tables"])}</div>', unsafe_allow_html=True)
-                    st.markdown('<div class="sap-metric-label">Tables</div>', unsafe_allow_html=True)
-                    st.markdown('</div>', unsafe_allow_html=True)
-
-                with col4:
-                    total_words = sum(len(text.split()) for text in pptx_data["text_content"])
-                    st.markdown('<div class="sap-card">', unsafe_allow_html=True)
-                    st.markdown(f'<div class="sap-metric-value">{total_words}</div>', unsafe_allow_html=True)
-                    st.markdown('<div class="sap-metric-label">Total Words</div>', unsafe_allow_html=True)
-                    st.markdown('</div>', unsafe_allow_html=True)
-
-                # Show slide summaries
-                if st.checkbox("Show slide details", value=False):
-                    for slide_data in pptx_data['slides']:
-                        with st.expander(f"Slide {slide_data['slide_number']}: {slide_data['title'] or 'Untitled'}", expanded=False):
-                            if slide_data['text_content']:
-                                st.markdown("**Text Content:**")
-                                for text in slide_data['text_content']:
-                                    if text.strip():
-                                        st.write(f"- {text}")
-
-                            if slide_data['tables']:
-                                st.markdown("**Tables:**")
-                                for i, table in enumerate(slide_data['tables']):
-                                    st.markdown(f"Table {i+1}:")
-                                    try:
-                                        df_table = pd.DataFrame(table[1:], columns=table[0])
-                                        st.dataframe(df_table, width='stretch')
-                                    except:
-                                        st.write("Table structure could not be parsed")
-
-                # Generate report button for PowerPoint
-                if st.button("=� Generate Analysis Report", type="primary"):
-                    with st.spinner("Generating SAP report..."):
-                        report_buffer = generate_sap_powerpoint_report(None, None, pptx_data)
-
-                        if report_buffer:
-                            st.success(" Report generated successfully!")
-                            st.download_button(
-                                label="=� Download SAP Report",
-                                data=report_buffer.getvalue(),
-                                file_name=f"SAP_PowerPoint_Analysis_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pptx",
-                                mime="application/vnd.openxmlformats-officedocument.presentationml.presentation"
-                            )
-
-        else:
-            # Process CSV/Excel files
-            df = sap_processor.process_csv_excel(file_content, uploaded_file.name)
-
-            if df is not None:
-                # Data processing options
-                if handle_missing == "Remove rows":
-                    df = df.dropna()
-                elif handle_missing == "Fill with mean":
-                    numeric_cols = df.select_dtypes(include=[np.number]).columns
-                    df[numeric_cols] = df[numeric_cols].fillna(df[numeric_cols].mean())
-                elif handle_missing == "Fill with median":
-                    numeric_cols = df.select_dtypes(include=[np.number]).columns
-                    df[numeric_cols] = df[numeric_cols].fillna(df[numeric_cols].median())
-
-                if remove_duplicates:
-                    df = df.drop_duplicates()
-
-                # Analyze data
-                quality_metrics = sap_processor.analyze_data_quality(df)
-                insights = sap_processor.generate_basic_insights(df)
-
-                # Display results
-                st.markdown("### =� SAP Data Analysis Dashboard")
-
-                # Quality metrics
-                if quality_metrics:
+                    # Word document summary metrics
+                    combined_stats = merged_word_insights['combined_stats']
                     col1, col2, col3, col4 = st.columns(4)
 
                     with col1:
                         st.markdown('<div class="sap-card">', unsafe_allow_html=True)
-                        st.markdown(f'<div class="sap-metric-value">{quality_metrics["total_records"]:,}</div>', unsafe_allow_html=True)
-                        st.markdown('<div class="sap-metric-label">Records</div>', unsafe_allow_html=True)
+                        st.markdown(f'<div class="sap-metric-value">{combined_stats["total_documents"]}</div>', unsafe_allow_html=True)
+                        st.markdown('<div class="sap-metric-label">Documents</div>', unsafe_allow_html=True)
                         st.markdown('</div>', unsafe_allow_html=True)
 
                     with col2:
                         st.markdown('<div class="sap-card">', unsafe_allow_html=True)
-                        st.markdown(f'<div class="sap-metric-value">{quality_metrics["completeness_pct"]:.1f}%</div>', unsafe_allow_html=True)
-                        st.markdown('<div class="sap-metric-label">Complete</div>', unsafe_allow_html=True)
+                        st.markdown(f'<div class="sap-metric-value">{combined_stats["total_words"]:,}</div>', unsafe_allow_html=True)
+                        st.markdown('<div class="sap-metric-label">Total Words</div>', unsafe_allow_html=True)
                         st.markdown('</div>', unsafe_allow_html=True)
 
                     with col3:
                         st.markdown('<div class="sap-card">', unsafe_allow_html=True)
-                        st.markdown(f'<div class="sap-metric-value">{quality_metrics["numeric_columns"]}</div>', unsafe_allow_html=True)
-                        st.markdown('<div class="sap-metric-label">Numeric Cols</div>', unsafe_allow_html=True)
+                        st.markdown(f'<div class="sap-metric-value">{combined_stats["total_key_points"]}</div>', unsafe_allow_html=True)
+                        st.markdown('<div class="sap-metric-label">Key Points</div>', unsafe_allow_html=True)
                         st.markdown('</div>', unsafe_allow_html=True)
 
                     with col4:
-                        quality_status = f'sap-status-{quality_metrics["quality_color"]}'
-                        st.markdown(f'<div class="{quality_status}">{quality_metrics["quality_level"]}</div>', unsafe_allow_html=True)
+                        st.markdown('<div class="sap-card">', unsafe_allow_html=True)
+                        st.markdown(f'<div class="sap-metric-value">{combined_stats["total_decisions"]}</div>', unsafe_allow_html=True)
+                        st.markdown('<div class="sap-metric-label">Decisions</div>', unsafe_allow_html=True)
+                        st.markdown('</div>', unsafe_allow_html=True)
 
-                # Data preview
-                st.markdown("#### =� Data Preview")
-                st.dataframe(df.head(10), width='stretch')
+                    # Document summaries
+                    with st.expander("📋 Document Summaries", expanded=False):
+                        for doc_summary in merged_word_insights['document_summaries']:
+                            st.markdown(f"**{doc_summary['filename']}**")
+                            col1, col2, col3 = st.columns(3)
+                            with col1:
+                                st.write(f"Words: {doc_summary['words']:,}")
+                            with col2:
+                                st.write(f"Tables: {doc_summary['tables']}")
+                            with col3:
+                                st.write(f"Author: {doc_summary['author']}")
 
-                # Summary statistics
-                if insights and 'summary_stats' in insights and not insights['summary_stats'].empty:
-                    st.markdown("#### =� Summary Statistics")
-                    st.dataframe(insights['summary_stats'], width='stretch')
+                    # Combined insights
+                    st.markdown("##### 🔍 Combined Content Analysis")
+                    tab1, tab2, tab3 = st.tabs(["Key Points", "Decisions", "Metrics"])
 
-                # Visualizations
-                if include_charts:
-                    st.markdown("#### =� Data Visualizations")
+                    with tab1:
+                        if merged_word_insights['all_key_points']:
+                            for i, point_data in enumerate(merged_word_insights['all_key_points'][:15]):
+                                st.write(f"• **[{point_data['source']}]** {point_data['content']}")
+                        else:
+                            st.info("No key points found across documents.")
 
-                    fig = create_sap_visualization(df)
-                    if fig:
-                        st.plotly_chart(fig, width='stretch')
+                    with tab2:
+                        if merged_word_insights['all_decisions']:
+                            for i, decision_data in enumerate(merged_word_insights['all_decisions'][:15]):
+                                st.write(f"• **[{decision_data['source']}]** {decision_data['content']}")
+                        else:
+                            st.info("No decisions found across documents.")
 
-                # Column insights
-                st.markdown("#### 🔍 Column Analysis")
+                    with tab3:
+                        if merged_word_insights['all_metrics']:
+                            for i, metric_data in enumerate(merged_word_insights['all_metrics'][:15]):
+                                st.write(f"• **[{metric_data['source']}]** {metric_data['content']}")
+                        else:
+                            st.info("No metrics found across documents.")
 
-                col_df = pd.DataFrame(insights['column_insights'])
-                col_display = col_df[['column', 'type', 'missing_pct', 'unique_values']].round(2)
-                st.dataframe(col_display, width='stretch')
+                    # Combined data tables from Word documents
+                    if merged_word_insights['combined_data_tables']:
+                        st.markdown("##### 📊 Extracted Data Tables from Documents")
+                        for i, table_data in enumerate(merged_word_insights['combined_data_tables'][:5]):
+                            st.markdown(f"**Table from {table_data['source']}** (Shape: {table_data['shape']})")
+                            st.dataframe(table_data['dataframe'], use_container_width=True)
 
-                # Generate report button
-                if st.button("=� Generate SAP Report", type="primary"):
-                    with st.spinner("Generating professional SAP report..."):
-                        report_buffer = generate_sap_powerpoint_report(df, insights)
+            # Process and merge PowerPoint data
+            merged_pptx_data = None
+            if processed_data['all_pptx_data']:
+                merged_pptx_data = sap_processor.merge_powerpoint_data(processed_data['all_pptx_data'])
 
-                        if report_buffer:
-                            st.success(" SAP report generated successfully!")
-                            st.download_button(
-                                label="=� Download SAP Report",
-                                data=report_buffer.getvalue(),
-                                file_name=f"SAP_Data_Analysis_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pptx",
-                                mime="application/vnd.openxmlformats-officedocument.presentationml.presentation"
-                            )
+                if merged_pptx_data:
+                    st.markdown("#### 📊 Combined PowerPoint Analysis")
 
+                    # PowerPoint summary metrics
+                    combined_stats = merged_pptx_data['combined_stats']
+                    col1, col2, col3, col4 = st.columns(4)
+
+                    with col1:
+                        st.markdown('<div class="sap-card">', unsafe_allow_html=True)
+                        st.markdown(f'<div class="sap-metric-value">{combined_stats["total_presentations"]}</div>', unsafe_allow_html=True)
+                        st.markdown('<div class="sap-metric-label">Presentations</div>', unsafe_allow_html=True)
+                        st.markdown('</div>', unsafe_allow_html=True)
+
+                    with col2:
+                        st.markdown('<div class="sap-card">', unsafe_allow_html=True)
+                        st.markdown(f'<div class="sap-metric-value">{combined_stats["total_slides"]}</div>', unsafe_allow_html=True)
+                        st.markdown('<div class="sap-metric-label">Total Slides</div>', unsafe_allow_html=True)
+                        st.markdown('</div>', unsafe_allow_html=True)
+
+                    with col3:
+                        st.markdown('<div class="sap-card">', unsafe_allow_html=True)
+                        st.markdown(f'<div class="sap-metric-value">{combined_stats["total_words"]:,}</div>', unsafe_allow_html=True)
+                        st.markdown('<div class="sap-metric-label">Total Words</div>', unsafe_allow_html=True)
+                        st.markdown('</div>', unsafe_allow_html=True)
+
+                    with col4:
+                        st.markdown('<div class="sap-card">', unsafe_allow_html=True)
+                        st.markdown(f'<div class="sap-metric-value">{combined_stats["total_tables"]}</div>', unsafe_allow_html=True)
+                        st.markdown('<div class="sap-metric-label">Total Tables</div>', unsafe_allow_html=True)
+                        st.markdown('</div>', unsafe_allow_html=True)
+
+                    # Presentation summaries
+                    with st.expander("📋 Presentation Summaries", expanded=False):
+                        for pres_summary in merged_pptx_data['presentation_summaries']:
+                            st.markdown(f"**{pres_summary['filename']}**")
+                            col1, col2, col3 = st.columns(3)
+                            with col1:
+                                st.write(f"Slides: {pres_summary['slides']}")
+                            with col2:
+                                st.write(f"Text Blocks: {pres_summary['text_blocks']}")
+                            with col3:
+                                st.write(f"Tables: {pres_summary['tables']}")
+
+            # Generate comprehensive report
+            st.markdown("#### 📊 Generate Comprehensive Analysis Report")
+
+            if st.button("🚀 Generate Multi-File SAP Report", type="primary", key="multi_file_report"):
+                with st.spinner("Generating comprehensive multi-file SAP report..."):
+                    # Create comprehensive insights object
+                    comprehensive_insights = {
+                        'file_summary': file_summary,
+                        'combined_data_insights': insights if 'insights' in locals() else None,
+                        'word_insights': merged_word_insights,
+                        'pptx_insights': merged_pptx_data,
+                        'authors': merged_word_insights['authors'] if merged_word_insights else [],
+                        'total_files_processed': file_summary['total_files']
+                    }
+
+                    # Generate the multi-file report
+                    report_buffer = generate_sap_powerpoint_report(
+                        combined_df,
+                        comprehensive_insights,
+                        merged_pptx_data,
+                        merged_word_insights
+                    )
+
+                    if report_buffer:
+                        st.success("✅ Comprehensive multi-file SAP report generated successfully!")
+                        st.download_button(
+                            label="📎 Download Multi-File SAP Analysis Report",
+                            data=report_buffer.getvalue(),
+                            file_name=f"SAP_MultiFile_Analysis_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pptx",
+                            mime="application/vnd.openxmlformats-officedocument.presentationml.presentation"
+                        )
+
+        else:
+            st.error("❌ No files were successfully processed. Please check your files and try again.")
 
 
 # Footer
@@ -2002,7 +2177,7 @@ st.markdown("---")
 st.markdown("""
 <div style="text-align: center; color: #6a6d70; font-size: 0.9rem; padding: 1rem;">
     🚀 <strong>Universal Automation Platform - SAP Edition</strong> |
-    Enterprise Data Processing & Analytics |
+    Enterprise Multi-File Data Processing & Analytics |
     Powered by SAP Corporate Standards
 </div>
 """, unsafe_allow_html=True)
