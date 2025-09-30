@@ -1980,6 +1980,60 @@ def aggregate_multi_source_data(df, insights, pptx_data=None, docx_data=None):
 
 def generate_sap_powerpoint_report(df, insights, pptx_data=None, docx_data=None):
     """Generate unified executive SAP-style PowerPoint report aggregating all input sources"""
+
+    # Defensive helper functions for unknown template structures
+    def safe_set_title(slide, title_text):
+        """Safely set slide title regardless of template structure"""
+        try:
+            if hasattr(slide, 'shapes') and hasattr(slide.shapes, 'title'):
+                slide.shapes.title.text = title_text
+                return True
+        except:
+            pass
+        return False
+
+    def safe_get_text_frame(slide, placeholder_index=1):
+        """Safely get text frame from any slide structure"""
+        try:
+            if hasattr(slide, 'placeholders') and len(slide.placeholders) > placeholder_index:
+                placeholder = slide.placeholders[placeholder_index]
+                if hasattr(placeholder, 'text_frame'):
+                    return placeholder.text_frame
+        except:
+            pass
+        return None
+
+    def safe_add_content(slide, content_lines):
+        """Safely add content to slide regardless of structure"""
+        try:
+            tf = safe_get_text_frame(slide)
+            if tf and content_lines:
+                tf.text = content_lines[0]
+                for line in content_lines[1:]:
+                    try:
+                        p = tf.add_paragraph()
+                        p.text = f"• {line}"
+                        p.level = 1
+                    except:
+                        continue
+                return True
+        except:
+            pass
+        return False
+
+    def safe_create_slide(prs, slide_type="content"):
+        """Safely create slide with fallback options"""
+        try:
+            if use_template_styling and 'duplicate_slide' in locals():
+                return duplicate_slide(1)
+            else:
+                layout_index = 0 if slide_type == "title" else 1
+                if hasattr(prs, 'slide_layouts') and len(prs.slide_layouts) > layout_index:
+                    return prs.slides.add_slide(prs.slide_layouts[layout_index])
+        except:
+            pass
+        return None
+
     try:
         # Check if template should be used
         use_template_styling = ('template_learned' in st.session_state and
