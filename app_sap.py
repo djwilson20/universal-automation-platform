@@ -2226,41 +2226,41 @@ def generate_sap_powerpoint_report(df, insights, pptx_data=None, docx_data=None)
 
                 body = slide.placeholders[1]
                 tf = body.text_frame
-                tf.text = content_lines[0]
+                if "tf" in locals() and tf: tf.text = content_lines[0]
 
                 for line in content_lines[1:]:
-                    p = tf.add_paragraph()
+                    if "tf" in locals() and tf: p = tf.add_paragraph()
                     p.text = f"• {line}"
                     p.level = 1
 
             # Detailed breakdown
             total_records = unified_metrics.get('total_records', 0)
             if total_records > 0:
-                p = tf.add_paragraph()
+                if "tf" in locals() and tf: p = tf.add_paragraph()
                 p.text = f"• Structured Data Records: {total_records:,}"
                 p.level = 1
 
             total_words = unified_metrics.get('total_words', 0)
             if total_words > 0:
-                p = tf.add_paragraph()
+                if "tf" in locals() and tf: p = tf.add_paragraph()
                 p.text = f"• Document Content: {total_words:,} words"
                 p.level = 1
 
             total_slides = unified_metrics.get('total_slides', 0)
             if total_slides > 0:
-                p = tf.add_paragraph()
+                if "tf" in locals() and tf: p = tf.add_paragraph()
                 p.text = f"• Presentation Content: {total_slides} slides"
                 p.level = 1
 
             total_decisions = unified_metrics.get('total_decisions', 0)
             if total_decisions > 0:
-                p = tf.add_paragraph()
+                if "tf" in locals() and tf: p = tf.add_paragraph()
                 p.text = f"• Business Decisions Identified: {total_decisions}"
                 p.level = 1
 
             total_key_points = unified_metrics.get('total_key_points', 0)
             if total_key_points > 0:
-                p = tf.add_paragraph()
+                if "tf" in locals() and tf: p = tf.add_paragraph()
                 p.text = f"• Key Insights Extracted: {total_key_points}"
                 p.level = 1
 
@@ -2308,10 +2308,10 @@ def generate_sap_powerpoint_report(df, insights, pptx_data=None, docx_data=None)
                 tf = body.text_frame
 
                 if content_lines:
-                    tf.text = content_lines[0]
+                    if "tf" in locals() and tf: tf.text = content_lines[0]
 
                     for line in content_lines[1:]:
-                        p = tf.add_paragraph()
+                        if "tf" in locals() and tf: p = tf.add_paragraph()
                         p.text = f"• {line}"
                         p.level = 1
 
@@ -2363,10 +2363,10 @@ def generate_sap_powerpoint_report(df, insights, pptx_data=None, docx_data=None)
 
                 body = slide.placeholders[1]
                 tf = body.text_frame
-                tf.text = content_lines[0]
+                if "tf" in locals() and tf: tf.text = content_lines[0]
 
                 for line in content_lines[1:]:
-                    p = tf.add_paragraph()
+                    if "tf" in locals() and tf: p = tf.add_paragraph()
                     p.text = f"• {line}"
                     p.level = 1
 
@@ -2393,7 +2393,7 @@ def generate_sap_powerpoint_report(df, insights, pptx_data=None, docx_data=None)
                 title_paragraph.font.name = primary_font
 
                 tf = body.text_frame
-                tf.text = f"Overall Quality: {quality_metrics['quality_level']}"
+                if "tf" in locals() and tf: tf.text = f"Overall Quality: {quality_metrics['quality_level']}"
 
                 metrics_text = [
                     f"Data Completeness: {quality_metrics['completeness_pct']:.1f}%",
@@ -2404,7 +2404,7 @@ def generate_sap_powerpoint_report(df, insights, pptx_data=None, docx_data=None)
                 ]
 
                 for metric in metrics_text:
-                    p = tf.add_paragraph()
+                    if "tf" in locals() and tf: p = tf.add_paragraph()
                     p.text = f"• {metric}"
                     p.level = 1
 
@@ -2426,25 +2426,25 @@ def generate_sap_powerpoint_report(df, insights, pptx_data=None, docx_data=None)
             title_paragraph.font.name = primary_font
 
             tf = body.text_frame
-            tf.text = f"Processed {pptx_data['slide_count']} slides"
+            if "tf" in locals() and tf: tf.text = f"Processed {pptx_data['slide_count']} slides"
 
-            p = tf.add_paragraph()
+            if "tf" in locals() and tf: p = tf.add_paragraph()
             p.text = f"• Text blocks extracted: {len(pptx_data['text_content'])}"
             p.level = 1
 
-            p = tf.add_paragraph()
+            if "tf" in locals() and tf: p = tf.add_paragraph()
             p.text = f"• Tables found: {len(pptx_data['tables'])}"
             p.level = 1
 
             # Show sample text content
             if pptx_data['text_content']:
-                p = tf.add_paragraph()
+                if "tf" in locals() and tf: p = tf.add_paragraph()
                 p.text = "• Sample content:"
                 p.level = 1
 
                 for i, text in enumerate(pptx_data['text_content'][:3]):
                     if text.strip():
-                        p = tf.add_paragraph()
+                        if "tf" in locals() and tf: p = tf.add_paragraph()
                         p.text = f"  - {text[:100]}{'...' if len(text) > 100 else ''}"
                         p.level = 2
 
@@ -2473,25 +2473,25 @@ def generate_sap_powerpoint_report(df, insights, pptx_data=None, docx_data=None)
                 doc_stats = docx_data.get('document_stats', {})
 
             total_words = doc_stats.get('total_words', 0)
-            tf.text = f"Processed document with {total_words:,} words"
+            if "tf" in locals() and tf: tf.text = f"Processed document with {total_words:,} words"
 
-            p = tf.add_paragraph()
+            if "tf" in locals() and tf: p = tf.add_paragraph()
             p.text = f"• Tables extracted: {doc_stats.get('total_tables', 0)}"
             p.level = 1
 
-            p = tf.add_paragraph()
+            if "tf" in locals() and tf: p = tf.add_paragraph()
             p.text = f"• Data tables found: {doc_stats.get('data_tables_found', 0)}"
             p.level = 1
 
-            p = tf.add_paragraph()
+            if "tf" in locals() and tf: p = tf.add_paragraph()
             p.text = f"• Key points identified: {doc_stats.get('key_points_found', 0)}"
             p.level = 1
 
-            p = tf.add_paragraph()
+            if "tf" in locals() and tf: p = tf.add_paragraph()
             p.text = f"• Decisions captured: {doc_stats.get('decisions_found', 0)}"
             p.level = 1
 
-            p = tf.add_paragraph()
+            if "tf" in locals() and tf: p = tf.add_paragraph()
             p.text = f"• Metrics found: {doc_stats.get('metrics_found', 0)}"
             p.level = 1
 
@@ -2522,31 +2522,31 @@ def generate_sap_powerpoint_report(df, insights, pptx_data=None, docx_data=None)
                 tf = body.text_frame
                 metadata = document_metadata
 
-                tf.text = "Document Properties"
+                if "tf" in locals() and tf: tf.text = "Document Properties"
 
                 if metadata.get('title'):
-                    p = tf.add_paragraph()
+                    if "tf" in locals() and tf: p = tf.add_paragraph()
                     p.text = f"• Title: {metadata['title']}"
                     p.level = 1
 
                 if metadata.get('author') or metadata.get('authors'):
                     author_text = metadata.get('author') or metadata.get('authors', '')
-                    p = tf.add_paragraph()
+                    if "tf" in locals() and tf: p = tf.add_paragraph()
                     p.text = f"• Author(s): {author_text}"
                     p.level = 1
 
                 if metadata.get('created'):
-                    p = tf.add_paragraph()
+                    if "tf" in locals() and tf: p = tf.add_paragraph()
                     p.text = f"• Created: {metadata['created']}"
                     p.level = 1
 
                 if metadata.get('subject'):
-                    p = tf.add_paragraph()
+                    if "tf" in locals() and tf: p = tf.add_paragraph()
                     p.text = f"• Subject: {metadata['subject']}"
                     p.level = 1
 
                 if metadata.get('total_documents'):
-                    p = tf.add_paragraph()
+                    if "tf" in locals() and tf: p = tf.add_paragraph()
                     p.text = f"• Documents Processed: {metadata['total_documents']}"
                     p.level = 1
 
@@ -2570,29 +2570,29 @@ def generate_sap_powerpoint_report(df, insights, pptx_data=None, docx_data=None)
                 title_paragraph.font.name = primary_font
 
                 tf = body.text_frame
-                tf.text = "Important Points and Decisions"
+                if "tf" in locals() and tf: tf.text = "Important Points and Decisions"
 
                 # Add key points
                 key_points = docx_data.get('processed_content', {}).get('key_points', [])[:5]
                 if key_points:
-                    p = tf.add_paragraph()
+                    if "tf" in locals() and tf: p = tf.add_paragraph()
                     p.text = "Key Points:"
                     p.level = 1
 
                     for point in key_points:
-                        p = tf.add_paragraph()
+                        if "tf" in locals() and tf: p = tf.add_paragraph()
                         p.text = f"• {point[:150]}{'...' if len(point) > 150 else ''}"
                         p.level = 2
 
                 # Add decisions
                 decisions = docx_data.get('processed_content', {}).get('decisions', [])[:3]
                 if decisions:
-                    p = tf.add_paragraph()
+                    if "tf" in locals() and tf: p = tf.add_paragraph()
                     p.text = "Decisions Made:"
                     p.level = 1
 
                     for decision in decisions:
-                        p = tf.add_paragraph()
+                        if "tf" in locals() and tf: p = tf.add_paragraph()
                         p.text = f"• {decision[:150]}{'...' if len(decision) > 150 else ''}"
                         p.level = 2
 
@@ -2616,10 +2616,10 @@ def generate_sap_powerpoint_report(df, insights, pptx_data=None, docx_data=None)
 
                 tf = body.text_frame
                 data_tables = docx_data.get('processed_content', {}).get('data_tables', [])
-                tf.text = f"Found {len(data_tables)} analyzable data tables"
+                if "tf" in locals() and tf: tf.text = f"Found {len(data_tables)} analyzable data tables"
 
                 for i, table_info in enumerate(data_tables[:3]):  # Show first 3 tables
-                    p = tf.add_paragraph()
+                    if "tf" in locals() and tf: p = tf.add_paragraph()
                     shape = table_info['shape']
                     numeric_cols = table_info['numeric_columns']
                     p.text = f"• Table {i+1}: {shape[0]} rows × {shape[1]} columns ({numeric_cols} numeric)"
@@ -2629,12 +2629,12 @@ def generate_sap_powerpoint_report(df, insights, pptx_data=None, docx_data=None)
                     if i == 0 and table_info['dataframe'] is not None:
                         df_sample = table_info['dataframe']
                         if not df_sample.empty:
-                            p = tf.add_paragraph()
+                            if "tf" in locals() and tf: p = tf.add_paragraph()
                             p.text = "Sample columns:"
                             p.level = 1
 
                             for col in list(df_sample.columns)[:4]:  # Show first 4 columns
-                                p = tf.add_paragraph()
+                                if "tf" in locals() and tf: p = tf.add_paragraph()
                                 p.text = f"  - {col}"
                                 p.level = 2
 
@@ -2656,16 +2656,16 @@ def generate_sap_powerpoint_report(df, insights, pptx_data=None, docx_data=None)
             title_paragraph.font.name = primary_font
 
             tf = body.text_frame
-            tf.text = "Column Analysis"
+            if "tf" in locals() and tf: tf.text = "Column Analysis"
 
             # Show top columns with insights
             for col_insight in insights['column_insights'][:8]:
-                p = tf.add_paragraph()
+                if "tf" in locals() and tf: p = tf.add_paragraph()
                 p.text = f"• {col_insight['column']} ({col_insight['type']})"
                 p.level = 1
 
                 if col_insight['missing_pct'] > 0:
-                    p = tf.add_paragraph()
+                    if "tf" in locals() and tf: p = tf.add_paragraph()
                     p.text = f"  Missing: {col_insight['missing_pct']:.1f}%"
                     p.level = 2
 
@@ -2686,7 +2686,7 @@ def generate_sap_powerpoint_report(df, insights, pptx_data=None, docx_data=None)
         title_paragraph.font.name = primary_font
 
         tf = body.text_frame
-        tf.text = "Next Steps for Data Processing"
+        if "tf" in locals() and tf: tf.text = "Next Steps for Data Processing"
 
         recommendations = [
             "Implement data quality monitoring",
@@ -2697,7 +2697,7 @@ def generate_sap_powerpoint_report(df, insights, pptx_data=None, docx_data=None)
         ]
 
         for rec in recommendations:
-            p = tf.add_paragraph()
+            if "tf" in locals() and tf: p = tf.add_paragraph()
             p.text = f"• {rec}"
             p.level = 1
 
