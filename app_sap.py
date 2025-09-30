@@ -1025,7 +1025,40 @@ class SAPDataProcessor:
             # Convert sets to lists for JSON serialization
             merged_insights['authors'] = list(merged_insights['authors'])
 
-            return merged_insights
+            # Create PowerPoint-compatible structure
+            powerpoint_compatible = {
+                'document_stats': {
+                    'total_words': merged_insights['combined_stats']['total_words'],
+                    'total_tables': merged_insights['combined_stats']['total_tables'],
+                    'total_paragraphs': merged_insights['combined_stats']['total_paragraphs'],
+                    'key_points_found': merged_insights['combined_stats']['total_key_points'],
+                    'decisions_found': merged_insights['combined_stats']['total_decisions'],
+                    'metrics_found': merged_insights['combined_stats']['total_metrics'],
+                    'data_tables_found': merged_insights['combined_stats']['data_tables_found'],
+                    'bullet_points': merged_insights['combined_stats'].get('bullet_points', 0),
+                    'numbered_lists': merged_insights['combined_stats'].get('numbered_lists', 0)
+                },
+                'processed_content': {
+                    'key_points': [item['content'] for item in merged_insights['all_key_points']],
+                    'decisions': [item['content'] for item in merged_insights['all_decisions']],
+                    'metrics': [item['content'] for item in merged_insights['all_metrics']],
+                    'text_content': [item['content'] for item in merged_insights['all_text_content']],
+                    'data_tables': merged_insights['combined_data_tables']
+                },
+                'document_structure': {
+                    'metadata': {
+                        'authors': ', '.join(merged_insights['authors']) if merged_insights['authors'] else '',
+                        'creation_dates': merged_insights['creation_dates'],
+                        'total_documents': merged_insights['combined_stats']['total_documents']
+                    },
+                    'headers': [],
+                    'footers': []
+                },
+                # Keep the original merged structure for backwards compatibility
+                'merged_insights': merged_insights
+            }
+
+            return powerpoint_compatible
 
         except Exception as e:
             st.error(f"Error merging Word document insights: {str(e)}")
@@ -2078,7 +2111,8 @@ def generate_sap_powerpoint_report(df, insights, pptx_data=None, docx_data=None)
             p.level = 1
 
             # Document metadata slide
-            if docx_data['document_structure']['metadata']:
+            if (docx_data and
+                docx_data.get('document_structure', {}).get('metadata', {})):
                 bullet_slide_layout = prs.slide_layouts[1]
                 slide = prs.slides.add_slide(bullet_slide_layout)
 
@@ -2095,7 +2129,7 @@ def generate_sap_powerpoint_report(df, insights, pptx_data=None, docx_data=None)
                 title_paragraph.font.name = primary_font
 
                 tf = body.text_frame
-                metadata = docx_data['document_structure']['metadata']
+                metadata = docx_data.get('document_structure', {}).get('metadata', {})
 
                 tf.text = "Document Properties"
 
@@ -2104,9 +2138,10 @@ def generate_sap_powerpoint_report(df, insights, pptx_data=None, docx_data=None)
                     p.text = f"• Title: {metadata['title']}"
                     p.level = 1
 
-                if metadata.get('author'):
+                if metadata.get('author') or metadata.get('authors'):
+                    author_text = metadata.get('author') or metadata.get('authors', '')
                     p = tf.add_paragraph()
-                    p.text = f"• Author: {metadata['author']}"
+                    p.text = f"• Author(s): {author_text}"
                     p.level = 1
 
                 if metadata.get('created'):
@@ -2119,8 +2154,15 @@ def generate_sap_powerpoint_report(df, insights, pptx_data=None, docx_data=None)
                     p.text = f"• Subject: {metadata['subject']}"
                     p.level = 1
 
+                if metadata.get('total_documents'):
+                    p = tf.add_paragraph()
+                    p.text = f"• Documents Processed: {metadata['total_documents']}"
+                    p.level = 1
+
             # Key findings slide from Word document
-            if docx_data['processed_content']['key_points'] or docx_data['processed_content']['decisions']:
+            if (docx_data and
+                (docx_data.get('processed_content', {}).get('key_points', []) or
+                 docx_data.get('processed_content', {}).get('decisions', []))):
                 bullet_slide_layout = prs.slide_layouts[1]
                 slide = prs.slides.add_slide(bullet_slide_layout)
 
@@ -2140,7 +2182,7 @@ def generate_sap_powerpoint_report(df, insights, pptx_data=None, docx_data=None)
                 tf.text = "Important Points and Decisions"
 
                 # Add key points
-                key_points = docx_data['processed_content']['key_points'][:5]
+                key_points = docx_data.get('processed_content', {}).get('key_points', [])[:5]
                 if key_points:
                     p = tf.add_paragraph()
                     p.text = "Key Points:"
@@ -2152,7 +2194,7 @@ def generate_sap_powerpoint_report(df, insights, pptx_data=None, docx_data=None)
                         p.level = 2
 
                 # Add decisions
-                decisions = docx_data['processed_content']['decisions'][:3]
+                decisions = docx_data.get('processed_content', {}).get('decisions', [])[:3]
                 if decisions:
                     p = tf.add_paragraph()
                     p.text = "Decisions Made:"
@@ -2164,7 +2206,8 @@ def generate_sap_powerpoint_report(df, insights, pptx_data=None, docx_data=None)
                         p.level = 2
 
             # Data tables slide from Word document
-            if docx_data['processed_content']['data_tables']:
+            if (docx_data and
+                docx_data.get('processed_content', {}).get('data_tables', [])):
                 bullet_slide_layout = prs.slide_layouts[1]
                 slide = prs.slides.add_slide(bullet_slide_layout)
 
@@ -2181,7 +2224,7 @@ def generate_sap_powerpoint_report(df, insights, pptx_data=None, docx_data=None)
                 title_paragraph.font.name = primary_font
 
                 tf = body.text_frame
-                data_tables = docx_data['processed_content']['data_tables']
+                data_tables = docx_data.get('processed_content', {}).get('data_tables', [])
                 tf.text = f"Found {len(data_tables)} analyzable data tables"
 
                 for i, table_info in enumerate(data_tables[:3]):  # Show first 3 tables
