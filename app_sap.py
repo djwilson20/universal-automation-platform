@@ -1710,8 +1710,13 @@ def aggregate_multi_source_data(df, insights, pptx_data=None, docx_data=None):
             quality_factors.append(insights['quality_metrics'].get('completeness_pct', 0))
         if aggregated['unified_metrics']['total_words'] > 0:
             quality_factors.append(min(100, aggregated['unified_metrics']['total_words'] / 100))  # Word richness
-        if aggregated['unified_metrics']['total_content_items'] > 0:
-            quality_factors.append(min(100, aggregated['unified_metrics']['total_content_items'] * 10))  # Content richness
+        total_content_items = (
+            aggregated['unified_metrics'].get('total_key_points', 0) +
+            aggregated['unified_metrics'].get('total_decisions', 0) +
+            aggregated['unified_metrics'].get('total_tables', 0)
+        )
+        if total_content_items > 0:
+            quality_factors.append(min(100, total_content_items * 10))  # Content richness
 
         aggregated['executive_summary']['data_quality_score'] = sum(quality_factors) / len(quality_factors) if quality_factors else 0
 
@@ -2111,8 +2116,14 @@ def generate_sap_powerpoint_report(df, insights, pptx_data=None, docx_data=None)
             p.level = 1
 
             # Document metadata slide
-            if (docx_data and
-                docx_data.get('document_structure', {}).get('metadata', {})):
+            # Check for document structure in both original data and aggregated data
+            document_metadata = {}
+            if docx_data and docx_data.get('document_structure', {}).get('metadata', {}):
+                document_metadata = docx_data.get('document_structure', {}).get('metadata', {})
+            elif aggregated_insights and aggregated_insights.get('document_structure', {}).get('metadata', {}):
+                document_metadata = aggregated_insights.get('document_structure', {}).get('metadata', {})
+
+            if document_metadata:
                 bullet_slide_layout = prs.slide_layouts[1]
                 slide = prs.slides.add_slide(bullet_slide_layout)
 
@@ -2129,7 +2140,7 @@ def generate_sap_powerpoint_report(df, insights, pptx_data=None, docx_data=None)
                 title_paragraph.font.name = primary_font
 
                 tf = body.text_frame
-                metadata = docx_data.get('document_structure', {}).get('metadata', {})
+                metadata = document_metadata
 
                 tf.text = "Document Properties"
 
@@ -2448,7 +2459,7 @@ if uploaded_files:
                     st.markdown("#### 📄 Combined Word Document Analysis")
 
                     # Word document summary metrics
-                    combined_stats = merged_word_insights['combined_stats']
+                    combined_stats = merged_word_insights.get('merged_insights', {}).get('combined_stats', {})
                     col1, col2, col3, col4 = st.columns(4)
 
                     with col1:
@@ -2477,7 +2488,7 @@ if uploaded_files:
 
                     # Document summaries
                     with st.expander("📋 Document Summaries", expanded=False):
-                        for doc_summary in merged_word_insights['document_summaries']:
+                        for doc_summary in merged_word_insights.get('merged_insights', {}).get('document_summaries', []):
                             st.markdown(f"**{doc_summary['filename']}**")
                             col1, col2, col3 = st.columns(3)
                             with col1:
@@ -2492,30 +2503,30 @@ if uploaded_files:
                     tab1, tab2, tab3 = st.tabs(["Key Points", "Decisions", "Metrics"])
 
                     with tab1:
-                        if merged_word_insights['all_key_points']:
-                            for i, point_data in enumerate(merged_word_insights['all_key_points'][:15]):
+                        if merged_word_insights.get('merged_insights', {}).get('all_key_points', []):
+                            for i, point_data in enumerate(merged_word_insights.get('merged_insights', {}).get('all_key_points', [])[:15]):
                                 st.write(f"• **[{point_data['source']}]** {point_data['content']}")
                         else:
                             st.info("No key points found across documents.")
 
                     with tab2:
-                        if merged_word_insights['all_decisions']:
-                            for i, decision_data in enumerate(merged_word_insights['all_decisions'][:15]):
+                        if merged_word_insights.get('merged_insights', {}).get('all_decisions', []):
+                            for i, decision_data in enumerate(merged_word_insights.get('merged_insights', {}).get('all_decisions', [])[:15]):
                                 st.write(f"• **[{decision_data['source']}]** {decision_data['content']}")
                         else:
                             st.info("No decisions found across documents.")
 
                     with tab3:
-                        if merged_word_insights['all_metrics']:
-                            for i, metric_data in enumerate(merged_word_insights['all_metrics'][:15]):
+                        if merged_word_insights.get('merged_insights', {}).get('all_metrics', []):
+                            for i, metric_data in enumerate(merged_word_insights.get('merged_insights', {}).get('all_metrics', [])[:15]):
                                 st.write(f"• **[{metric_data['source']}]** {metric_data['content']}")
                         else:
                             st.info("No metrics found across documents.")
 
                     # Combined data tables from Word documents
-                    if merged_word_insights['combined_data_tables']:
+                    if merged_word_insights.get('merged_insights', {}).get('combined_data_tables', []):
                         st.markdown("##### 📊 Extracted Data Tables from Documents")
-                        for i, table_data in enumerate(merged_word_insights['combined_data_tables'][:5]):
+                        for i, table_data in enumerate(merged_word_insights.get('merged_insights', {}).get('combined_data_tables', [])[:5]):
                             st.markdown(f"**Table from {table_data['source']}** (Shape: {table_data['shape']})")
                             st.dataframe(table_data['dataframe'], use_container_width=True)
 
@@ -2578,7 +2589,7 @@ if uploaded_files:
                         'combined_data_insights': insights if 'insights' in locals() else None,
                         'word_insights': merged_word_insights,
                         'pptx_insights': merged_pptx_data,
-                        'authors': merged_word_insights['authors'] if merged_word_insights else [],
+                        'authors': merged_word_insights.get('merged_insights', {}).get('authors', []) if merged_word_insights else [],
                         'total_files_processed': file_summary['total_files']
                     }
 
