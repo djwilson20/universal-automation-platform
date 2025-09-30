@@ -1500,7 +1500,11 @@ class SAPDataProcessor:
 
 # Initialize SAP processor and template analyzer
 sap_processor = SAPDataProcessor()
-template_analyzer = SAPTemplateAnalyzer()
+
+# Initialize template analyzer in session state to persist across reruns
+if 'template_analyzer' not in st.session_state:
+    st.session_state['template_analyzer'] = SAPTemplateAnalyzer()
+template_analyzer = st.session_state['template_analyzer']
 
 # Sidebar configuration
 with st.sidebar:
@@ -1982,6 +1986,15 @@ def generate_sap_powerpoint_report(df, insights, pptx_data=None, docx_data=None)
                               st.session_state['template_learned'] and
                               hasattr(template_analyzer, 'template_presentation') and
                               template_analyzer.template_presentation)
+
+        # Debug messaging
+        if 'template_learned' in st.session_state and st.session_state['template_learned']:
+            if hasattr(template_analyzer, 'template_presentation') and template_analyzer.template_presentation:
+                st.info(f"✅ Using template with {len(template_analyzer.template_presentation.slides)} slides")
+            else:
+                st.warning("⚠️ Template learned but presentation not found - using default styling")
+        else:
+            st.info("ℹ️ No template loaded - using default styling")
 
         if use_template_styling:
             # CLONE the template presentation instead of creating new
