@@ -1980,26 +1980,115 @@ def generate_sap_powerpoint_report(df, insights, pptx_data=None, docx_data=None)
         # Check if template should be used
         use_template_styling = ('template_learned' in st.session_state and
                               st.session_state['template_learned'] and
-                              hasattr(template_analyzer, 'learned_styles') and
-                              template_analyzer.learned_styles)
+                              hasattr(template_analyzer, 'template_presentation') and
+                              template_analyzer.template_presentation)
 
-        # Use template presentation as base if available
-        if (use_template_styling and
-            hasattr(template_analyzer, 'template_presentation') and
-            template_analyzer.template_presentation):
-            # Clone the template presentation
-            from copy import deepcopy
+        if use_template_styling:
+            # CLONE the template presentation instead of creating new
             try:
-                # Create new presentation based on template
-                template_prs = template_analyzer.template_presentation
-                prs = Presentation()
+                # Save template to temporary buffer and reload it (creates a copy)
+                template_buffer = BytesIO()
+                template_analyzer.template_presentation.save(template_buffer)
+                template_buffer.seek(0)
 
-                # Copy slide masters and layouts from template
-                for master in template_prs.slide_masters:
-                    # This is complex in python-pptx, so for now use default with template styling
-                    pass
-            except:
+                # Load the template as our base presentation
+                prs = Presentation(template_buffer)
+                st.success("Successfully cloned template presentation")
+
+                # Store reference to original template slides for duplication
+                template_slides = list(prs.slides)
+
+                # Function to duplicate a slide from template
+                def duplicate_slide(source_slide_index=1):
+                    """Duplicate a slide from template (default to second slide for content)"""
+                    try:
+                        if source_slide_index < len(template_slides):
+                            source_slide = template_slides[source_slide_index]
+
+                            # Get the slide layout
+                            slide_layout = source_slide.slide_layout
+
+                            # Add new slide with same layout
+                            new_slide = prs.slides.add_slide(slide_layout)
+
+                            # Copy all shapes except placeholders (which will be filled with new content)
+                            for shape in source_slide.shapes:
+                                if not (hasattr(shape, 'is_placeholder') and shape.is_placeholder):
+                                    # Copy non-placeholder shapes (logos, images, design elements)
+                                    if shape.shape_type == 13:  # Picture
+                                        # Copy image
+                                        try:
+                                            image_part = shape.image.image_part
+                                            new_slide.shapes.add_picture(
+                                                BytesIO(image_part.blob),
+                                                shape.left, shape.top, shape.width, shape.height
+                                            )
+                                        except:
+                                            pass
+                                    elif hasattr(shape, 'shape_type'):
+                                        # Copy other shapes (rectangles, etc.)
+                                        try:
+                                            if shape.shape_type == 1:  # AutoShape
+                                                new_shape = new_slide.shapes.add_shape(
+                                                    MSO_SHAPE.RECTANGLE,
+                                                    shape.left, shape.top, shape.width, shape.height
+                                                )
+                                                # Copy fill if available
+                                                if hasattr(shape, 'fill') and hasattr(new_shape, 'fill'):
+                                                    if hasattr(shape.fill, 'fore_color'):
+                                                        new_shape.fill.solid()
+                                                        new_shape.fill.fore_color.rgb = shape.fill.fore_color.rgb
+                                        except:
+                                            pass
+
+                            return new_slide
+                        else:
+                            # Fallback to basic slide if template doesn't have enough slides
+                            return prs.slides.add_slide(prs.slide_layouts[1])
+                    except:
+                        return prs.slides.add_slide(prs.slide_layouts[1])
+
+                # Function to replace text in slide placeholders while preserving formatting
+                def replace_slide_content(slide, title_text, content_lines):
+                    """Replace content in slide placeholders while keeping all formatting"""
+                    try:
+                        # Find and update title
+                        if hasattr(slide, 'shapes') and slide.shapes.title:
+                            title_shape = slide.shapes.title
+                            if hasattr(title_shape, 'text_frame'):
+                                # Clear existing text but keep formatting
+                                title_shape.text_frame.clear()
+                                p = title_shape.text_frame.paragraphs[0]
+                                p.text = title_text
+
+                        # Find content placeholder and update
+                        for shape in slide.shapes:
+                            if (hasattr(shape, 'is_placeholder') and shape.is_placeholder and
+                                hasattr(shape, 'placeholder_format') and
+                                shape.placeholder_format.type == 2):  # Content placeholder
+
+                                if hasattr(shape, 'text_frame'):
+                                    # Clear existing content but preserve formatting
+                                    shape.text_frame.clear()
+
+                                    # Add new content as bullets
+                                    for i, line in enumerate(content_lines):
+                                        if i == 0:
+                                            p = shape.text_frame.paragraphs[0]
+                                        else:
+                                            p = shape.text_frame.add_paragraph()
+
+                                        p.text = line
+                                        p.level = 0  # Top level bullet
+
+                                break  # Only update first content placeholder
+                    except Exception as e:
+                        pass
+
+            except Exception as e:
+                st.error(f"Error cloning template: {str(e)}")
                 prs = Presentation()
+                use_template_styling = False
         else:
             prs = Presentation()
 
@@ -2048,66 +2137,88 @@ def generate_sap_powerpoint_report(df, insights, pptx_data=None, docx_data=None)
         include_document_analysis = bool(docx_data)
         include_presentation_analysis = bool(pptx_data)
 
-        # Title slide
-        title_slide_layout = prs.slide_layouts[0]
-        slide = prs.slides.add_slide(title_slide_layout)
+        # Title slide - use first slide from template if available
+        if use_template_styling and len(prs.slides) > 0:
+            # Modify existing template title slide
+            slide = prs.slides[0]
+            subtitle_text = f"Unified Business Intelligence Analysis\n{total_points:,} Data Points | {datetime.now().strftime('%B %d, %Y')}"
 
-        # Apply template structure to title slide
-        if use_template_styling:
-            slide = template_analyzer.apply_template_structure(slide, 'title')
-
-        title = slide.shapes.title
-        subtitle = slide.placeholders[1]
-
-        title.text = report_title
-        if use_template_styling:
-            subtitle.text = f"Unified Business Intelligence Analysis\n{total_points:,} Data Points | {datetime.now().strftime('%B %d, %Y')}"
+            if 'replace_slide_content' in locals():
+                # Use template content replacement
+                replace_slide_content(slide, report_title, [subtitle_text])
+            else:
+                # Manual replacement as fallback
+                if hasattr(slide, 'shapes') and slide.shapes.title:
+                    slide.shapes.title.text = report_title
+                # Try to find subtitle placeholder
+                for shape in slide.shapes:
+                    if (hasattr(shape, 'is_placeholder') and shape.is_placeholder and
+                        hasattr(shape, 'placeholder_format') and
+                        shape.placeholder_format.type in [3, 4]):  # Subtitle placeholders
+                        if hasattr(shape, 'text_frame'):
+                            shape.text_frame.clear()
+                            shape.text_frame.paragraphs[0].text = subtitle_text
+                        break
         else:
+            # Fallback to creating new title slide
+            title_slide_layout = prs.slide_layouts[0]
+            slide = prs.slides.add_slide(title_slide_layout)
+
+            title = slide.shapes.title
+            subtitle = slide.placeholders[1]
+
+            title.text = report_title
             subtitle.text = f"Unified Business Intelligence Analysis\n{total_points:,} Data Points | {datetime.now().strftime('%B %d, %Y')}"
 
-        # Format title with template styling
-        title_paragraph = title.text_frame.paragraphs[0]
-        title_paragraph.font.color.rgb = primary_color
-        title_paragraph.font.size = Pt(44)
-        title_paragraph.font.bold = True
-        title_paragraph.font.name = primary_font
+            # Format title with manual styling
+            title_paragraph = title.text_frame.paragraphs[0]
+            title_paragraph.font.color.rgb = primary_color
+            title_paragraph.font.size = Pt(44)
+            title_paragraph.font.bold = True
+            title_paragraph.font.name = primary_font
 
         # Unified Executive Summary slide
         if include_summary and aggregated_insights:
-            bullet_slide_layout = prs.slide_layouts[1]
-            slide = prs.slides.add_slide(bullet_slide_layout)
+            if use_template_styling and 'duplicate_slide' in locals():
+                # Use template cloning approach
+                slide = duplicate_slide(1)  # Duplicate second slide from template for content
+            else:
+                # Fallback to old approach
+                bullet_slide_layout = prs.slide_layouts[1]
+                slide = prs.slides.add_slide(bullet_slide_layout)
 
-            # Apply template structure
-            if use_template_styling:
-                slide = template_analyzer.apply_template_structure(slide, 'title_and_content')
-
-            title = slide.shapes.title
-            body = slide.placeholders[1]
-
-            title.text = "Executive Summary"
-            title_paragraph = title.text_frame.paragraphs[0]
-            title_paragraph.font.color.rgb = primary_color
-            title_paragraph.font.name = primary_font
-
-            tf = body.text_frame
+            # Prepare content for template replacement
             exec_summary = aggregated_insights.get('executive_summary', {})
             unified_metrics = aggregated_insights.get('unified_metrics', {})
-
             data_sources = exec_summary.get('total_data_sources', 0)
-            tf.text = f"Unified Analysis of {data_sources} Data Source{'s' if data_sources != 1 else ''}"
 
-            # Key metrics overview
-            p = tf.add_paragraph()
-            p.text = f"• Total Data Points Analyzed: {exec_summary.get('total_data_points', 0):,}"
-            p.level = 1
+            title_text = "Executive Summary"
+            content_lines = [
+                f"Unified Analysis of {data_sources} Data Source{'s' if data_sources != 1 else ''}",
+                f"Total Data Points Analyzed: {exec_summary.get('total_data_points', 0):,}",
+                f"Content Items Extracted: {exec_summary.get('total_content_items', 0)}",
+                f"Overall Quality Score: {exec_summary.get('data_quality_score', 0):.1f}%"
+            ]
 
-            p = tf.add_paragraph()
-            p.text = f"• Content Items Extracted: {exec_summary.get('total_content_items', 0)}"
-            p.level = 1
+            if use_template_styling and 'replace_slide_content' in locals():
+                # Use template content replacement (preserves all formatting)
+                replace_slide_content(slide, title_text, content_lines)
+            else:
+                # Fallback to manual formatting
+                title = slide.shapes.title
+                title.text = title_text
+                title_paragraph = title.text_frame.paragraphs[0]
+                title_paragraph.font.color.rgb = primary_color
+                title_paragraph.font.name = primary_font
 
-            p = tf.add_paragraph()
-            p.text = f"• Overall Quality Score: {exec_summary.get('data_quality_score', 0):.1f}%"
-            p.level = 1
+                body = slide.placeholders[1]
+                tf = body.text_frame
+                tf.text = content_lines[0]
+
+                for line in content_lines[1:]:
+                    p = tf.add_paragraph()
+                    p.text = f"• {line}"
+                    p.level = 1
 
             # Detailed breakdown
             total_records = unified_metrics.get('total_records', 0)
