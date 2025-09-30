@@ -2318,51 +2318,56 @@ def generate_sap_powerpoint_report(df, insights, pptx_data=None, docx_data=None)
         # Cross-Source Analysis slide
         if (aggregated_insights and
             aggregated_insights.get('cross_source_insights', {}).get('common_themes', [])):
-            bullet_slide_layout = prs.slide_layouts[1]
-            slide = prs.slides.add_slide(bullet_slide_layout)
 
-            # Apply template structure
-            if use_template_styling:
-                slide = template_analyzer.apply_template_structure(slide, 'title_and_content')
+            if use_template_styling and 'duplicate_slide' in locals():
+                # Use template cloning approach
+                slide = duplicate_slide(1)  # Duplicate second slide from template for content
+            else:
+                # Fallback to old approach
+                bullet_slide_layout = prs.slide_layouts[1]
+                slide = prs.slides.add_slide(bullet_slide_layout)
 
-            title = slide.shapes.title
-            body = slide.placeholders[1]
-
-            title.text = "Cross-Source Analysis"
-            title_paragraph = title.text_frame.paragraphs[0]
-            title_paragraph.font.color.rgb = primary_color
-            title_paragraph.font.name = primary_font
-
-            tf = body.text_frame
-            tf.text = "Common Themes Across Data Sources"
+            # Prepare content for template replacement
+            title_text = "Cross-Source Analysis"
+            content_lines = ["Common Themes Across Data Sources"]
 
             for theme in aggregated_insights['cross_source_insights']['common_themes']:
-                p = tf.add_paragraph()
-                p.text = f"• {theme}"
-                p.level = 1
+                content_lines.append(theme)
 
-            # Add data source overview
+            # Add data source overview to content
             if aggregated_insights['data_overview']:
-                p = tf.add_paragraph()
-                p.text = "Data Source Breakdown"
-                p.level = 0
+                content_lines.append("Data Source Breakdown")
 
                 if aggregated_insights['data_overview']['csv_excel_summary']:
                     csv_summary = aggregated_insights['data_overview']['csv_excel_summary']
-                    p = tf.add_paragraph()
-                    p.text = f"• Structured Data: {csv_summary['shape'][0]:,} records, {csv_summary['shape'][1]} columns"
-                    p.level = 1
+                    content_lines.append(f"Structured Data: {csv_summary['shape'][0]:,} records, {csv_summary['shape'][1]} columns")
 
                 if aggregated_insights['data_overview']['document_summary']:
                     doc_summary = aggregated_insights['data_overview']['document_summary']
-                    p = tf.add_paragraph()
-                    p.text = f"• Documents: {doc_summary['document_count']} files, {doc_summary['total_words']:,} words"
-                    p.level = 1
+                    content_lines.append(f"Documents: {doc_summary['document_count']} files, {doc_summary['total_words']:,} words")
 
                 if aggregated_insights['data_overview']['presentation_summary']:
                     pres_summary = aggregated_insights['data_overview']['presentation_summary']
+                    content_lines.append(f"Presentations: {pres_summary['presentation_count']} files, {pres_summary['total_slides']} slides")
+
+            if use_template_styling and 'replace_slide_content' in locals():
+                # Use template content replacement (preserves all formatting)
+                replace_slide_content(slide, title_text, content_lines)
+            else:
+                # Fallback to manual formatting
+                title = slide.shapes.title
+                title.text = title_text
+                title_paragraph = title.text_frame.paragraphs[0]
+                title_paragraph.font.color.rgb = primary_color
+                title_paragraph.font.name = primary_font
+
+                body = slide.placeholders[1]
+                tf = body.text_frame
+                tf.text = content_lines[0]
+
+                for line in content_lines[1:]:
                     p = tf.add_paragraph()
-                    p.text = f"• Presentations: {pres_summary['presentation_count']} files, {pres_summary['total_slides']} slides"
+                    p.text = f"• {line}"
                     p.level = 1
 
         # Configure additional slide flags
