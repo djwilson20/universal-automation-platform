@@ -2268,42 +2268,52 @@ def generate_sap_powerpoint_report(df, insights, pptx_data=None, docx_data=None)
         if (aggregated_insights and
             (aggregated_insights.get('executive_summary', {}).get('main_insights', []) or
              aggregated_insights.get('executive_summary', {}).get('recommendations', []))):
-            bullet_slide_layout = prs.slide_layouts[1]
-            slide = prs.slides.add_slide(bullet_slide_layout)
 
-            # Apply template structure
-            if use_template_styling:
-                slide = template_analyzer.apply_template_structure(slide, 'title_and_content')
+            if use_template_styling and 'duplicate_slide' in locals():
+                # Use template cloning approach
+                slide = duplicate_slide(1)  # Duplicate second slide from template for content
+            else:
+                # Fallback to old approach
+                bullet_slide_layout = prs.slide_layouts[1]
+                slide = prs.slides.add_slide(bullet_slide_layout)
 
-            title = slide.shapes.title
-            body = slide.placeholders[1]
-
-            title.text = "Key Insights & Recommendations"
-            title_paragraph = title.text_frame.paragraphs[0]
-            title_paragraph.font.color.rgb = primary_color
-            title_paragraph.font.name = primary_font
-
-            tf = body.text_frame
+            # Prepare content for template replacement
+            title_text = "Key Insights & Recommendations"
+            content_lines = []
 
             # Main insights
             if aggregated_insights['executive_summary']['main_insights']:
-                tf.text = "Strategic Insights from Analysis"
-
+                content_lines.append("Strategic Insights from Analysis")
                 for insight in aggregated_insights['executive_summary']['main_insights'][:5]:
-                    p = tf.add_paragraph()
-                    p.text = f"• {insight['content'][:120]}{'...' if len(insight['content']) > 120 else ''}"
-                    p.level = 1
+                    content_lines.append(insight['content'][:120] + ('...' if len(insight['content']) > 120 else ''))
 
             # Recommendations
             if aggregated_insights['executive_summary']['recommendations']:
-                p = tf.add_paragraph()
-                p.text = "Recommended Actions"
-                p.level = 0
-
+                content_lines.append("Recommended Actions")
                 for rec in aggregated_insights['executive_summary']['recommendations']:
-                    p = tf.add_paragraph()
-                    p.text = f"• {rec}"
-                    p.level = 1
+                    content_lines.append(rec)
+
+            if use_template_styling and 'replace_slide_content' in locals():
+                # Use template content replacement (preserves all formatting)
+                replace_slide_content(slide, title_text, content_lines)
+            else:
+                # Fallback to manual formatting
+                title = slide.shapes.title
+                title.text = title_text
+                title_paragraph = title.text_frame.paragraphs[0]
+                title_paragraph.font.color.rgb = primary_color
+                title_paragraph.font.name = primary_font
+
+                body = slide.placeholders[1]
+                tf = body.text_frame
+
+                if content_lines:
+                    tf.text = content_lines[0]
+
+                    for line in content_lines[1:]:
+                        p = tf.add_paragraph()
+                        p.text = f"• {line}"
+                        p.level = 1
 
         # Cross-Source Analysis slide
         if (aggregated_insights and
